@@ -25,6 +25,7 @@ class MyHomePage extends StatefulWidget {
 
   final String title;
 
+
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 
@@ -33,6 +34,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   bool isDrawingMode = false;
+
 
   void setDrawingMode(bool enabled) {
     setState(() {
@@ -69,18 +71,18 @@ class _TopNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(8.0),
+      padding: const EdgeInsets.all(8.0),
       color: Colors.blueAccent,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           ElevatedButton(
             onPressed: () => setDrawingMode(true),  // Enable drawing mode
-            child: Text('Draw'),
+            child: const Text('Draw'),
           ),
           ElevatedButton(
             onPressed: () => setDrawingMode(false),  // Enable typing mode
-            child: Text('Type'),
+            child: const Text('Type'),
           ),
         ],
       ),
@@ -88,35 +90,40 @@ class _TopNav extends StatelessWidget {
   }
 }
 
-class _MiddleView extends StatelessWidget {
-  final bool isDrawingMode;
+class _MiddleView extends StatefulWidget {
+  final bool isDrawingMode;  // Flag to indicate whether it's drawing mode
 
   const _MiddleView({required this.isDrawingMode});
 
   @override
+  State<_MiddleView> createState() => _MiddleViewState();
+}
+
+class _MiddleViewState extends State<_MiddleView> {
+  List<Offset> points = [];  // Store the points where the user drags
+
+  @override
   Widget build(BuildContext context) {
-    return InteractiveViewer(
-      boundaryMargin: EdgeInsets.all(double.infinity),
-      minScale: 0.5,
-      maxScale: 4.0,
-      child: Container(
-        color: const Color.fromARGB(255, 203, 174, 174),
-        child: GestureDetector(
-          onPanUpdate: (details) {
-            if (isDrawingMode) {
-              // Handle drawing mode
-            }
-          },
-          onTapDown: (details) {
-            if (!isDrawingMode) {
-              // Handle typing mode
-            }
-          },
-          child: CustomPaint(
-            painter: _CanvasPainter(),  // Custom painter for drawing
-            size: Size(1000, 1000),
-          ),
-        ),
+    return GestureDetector(
+      onPanUpdate: (details) {
+        if (widget.isDrawingMode) {
+          setState(() {
+            RenderBox renderBox = context.findRenderObject() as RenderBox;
+            Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+            points.add(localPosition);  // Add the current drag position to the list
+          });
+        }
+      },
+      onPanEnd: (details) {
+        if (widget.isDrawingMode) {
+          setState(() {
+            points.add(const Offset(-1, -1));  // Add a sentinel value to indicate a stroke end
+          });
+        }
+      },
+      child: CustomPaint(
+        painter: _CanvasPainter(points: points),  // Pass the points to the painter
+        size: Size.infinite,
       ),
     );
   }
@@ -125,16 +132,28 @@ class _MiddleView extends StatelessWidget {
 
 
 
-
 class _CanvasPainter extends CustomPainter {
+  final List<Offset> points;  // List of points to draw
+
+  _CanvasPainter({required this.points});
+
   @override
   void paint(Canvas canvas, Size size) {
-    // Drawing logic, e.g., rendering strokes, lines, etc.
+    Paint paint = Paint()
+      ..color = Colors.blue
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 5.0;
+
+    for (int i = 0; i < points.length - 1; i++) {
+      if (points[i] != const Offset(-1, -1) && points[i + 1] != const Offset(-1, -1)) {
+        // Draw a line between consecutive points, excluding sentinel (-1, -1)
+        canvas.drawLine(points[i], points[i + 1], paint);
+      }
+    }
   }
 
   @override
-  bool shouldRepaint(CustomPainter oldDelegate) {
-    return true;  // Repaint whenever the drawing state changes
+  bool shouldRepaint(_CanvasPainter oldDelegate) {
+    return true;  // Always repaint when the points list updates
   }
 }
-
