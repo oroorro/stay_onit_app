@@ -77,12 +77,28 @@ class _TopNav extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           ElevatedButton(
+            onPressed: () => {},  
+            child: const Text('Home'),
+          ),
+          ElevatedButton(
+            onPressed: () => {},  
+            child: const Text('Import'),
+          ),
+          ElevatedButton(
             onPressed: () => setDrawingMode(true),  // Enable drawing mode
             child: const Text('Draw'),
           ),
           ElevatedButton(
             onPressed: () => setDrawingMode(false),  // Enable typing mode
             child: const Text('Type'),
+          ),
+          ElevatedButton(
+            onPressed: () => {},  // Enable drawing mode
+            child: const Text('New'),
+          ),
+          ElevatedButton(
+            onPressed: () => {},  
+            child: const Text('Resize'),
           ),
         ],
       ),
