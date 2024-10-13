@@ -87,15 +87,27 @@ class _TopNav extends StatelessWidget {
         children: [
           _styledButton('Home'),
           ElevatedButton(
-            onPressed: () => setZoomingMode(true),  
+            onPressed: (){
+              setZoomingMode(true);
+              setDrawingMode(false);
+              print('Zoom Mode: true, Drawing Mode: false');
+              },  
             child: const Text('Zoom'),
           ),
           ElevatedButton(
-            onPressed: () => setDrawingMode(true),  // Enable drawing mode
+            onPressed: (){
+              setZoomingMode(false);
+              setDrawingMode(true);
+              print('Zoom Mode: false, Drawing Mode: true');
+              },    // Enable drawing mode
             child: const Text('Draw'),
           ),
           ElevatedButton(
-            onPressed: () => setDrawingMode(false),  // Enable typing mode
+            onPressed: (){
+              setZoomingMode(false);
+              setDrawingMode(true);
+              print('Zoom Mode: false, Typing Mode: true');
+              },   // Enable typing mode
             child: const Text('Type'),
           ),
           // ElevatedButton(
@@ -162,28 +174,52 @@ class _MiddleViewState extends State<_MiddleView> {
       boundaryMargin: const EdgeInsets.all(double.infinity),  // Allow panning without limits
       minScale: 0.5,  // Minimum zoom scale
       maxScale: 4.0,  // Maximum zoom scale
-      child: GestureDetector(
-        onPanUpdate: (details) {
-          if (widget.isDrawingMode && !widget.isZoomingMode) {
-            setState(() {
-              RenderBox renderBox = context.findRenderObject() as RenderBox;
-              Offset localPosition = renderBox.globalToLocal(details.globalPosition);
-              points.add(localPosition);  // Add the current drag position to the list
-            });
-          }
-        },
-        onPanEnd: (details) {
-          if (widget.isDrawingMode && !widget.isZoomingMode) {
-            setState(() {
-              points.add(const Offset(-1, -1));  // Add a sentinel value to indicate a stroke end
-            });
-          }
-        },
-        child: CustomPaint(
-          painter: _CanvasPainter(points: points),  // Pass the points to the painter
-          size: const Size(1000, 1000),
-        ),
-      )
+      onInteractionStart: (details) {
+        if (widget.isZoomingMode) {
+          print('Zoom started');
+        }
+      },
+      onInteractionUpdate: (details) {
+        if (widget.isZoomingMode) {
+          print('Zoom scale: ${details.scale}');
+        }
+      },
+      onInteractionEnd: (details) {
+        if (widget.isZoomingMode) {
+          print('Zoom ended');
+        }
+      },
+      child: widget.isZoomingMode  // Disable gesture detection when zooming
+          ? Container(
+              color: Colors.transparent,
+              child: CustomPaint(
+                painter: _CanvasPainter(points: points),  // Pass the points to the painter
+                size: const Size(1000, 1000),
+              ),
+            )
+          : GestureDetector(
+              onPanUpdate: (details) {
+                if (widget.isDrawingMode) {
+                  setState(() {
+                    RenderBox renderBox = context.findRenderObject() as RenderBox;
+                    Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+                    points.add(localPosition);  // Add the current drag position to the list
+                  });
+                }
+              },
+              onPanEnd: (details) {
+                if (widget.isDrawingMode) {
+                  setState(() {
+                    points.add(const Offset(-1, -1));  // Add a sentinel value to indicate a stroke end
+                  });
+                }
+              },
+              child: CustomPaint(
+                painter: _CanvasPainter(points: points),
+                size: const Size(1000, 1000),
+              ),
+            ),
+    
     );
     
   }
