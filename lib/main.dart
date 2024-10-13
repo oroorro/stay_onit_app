@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vector_math/vector_math_64.dart' as vmath;
 
 void main() {
   runApp(const MyApp());
@@ -167,20 +168,30 @@ class _MiddleView extends StatefulWidget {
 
 class _MiddleViewState extends State<_MiddleView> {
   List<Offset> points = [];  // Store the points where the user drags
+  Offset totalPanOffset = Offset.zero;
+  final TransformationController  _transformationController = TransformationController();
 
   @override
   Widget build(BuildContext context) {
      return InteractiveViewer(
+      transformationController: _transformationController,
       boundaryMargin: const EdgeInsets.all(double.infinity),  // Allow panning without limits
       minScale: 0.5,  // Minimum zoom scale
       maxScale: 4.0,  // Maximum zoom scale
       onInteractionStart: (details) {
         if (widget.isZoomingMode) {
-          print('Zoom started');
+          print('Zoom started' );
+          
         }
       },
-      onInteractionUpdate: (details) {
+       onInteractionUpdate: (details) {
         if (widget.isZoomingMode) {
+          // Use focalPointDelta to track panning or zoom changes
+          setState(() {
+            totalPanOffset += details.focalPointDelta;
+          });
+          print('Panning Offset: $totalPanOffset');
+           print('Panned dx: ${details.focalPointDelta.dx} dy: ${details.focalPointDelta.dy}');
           print('Zoom scale: ${details.scale}');
         }
       },
@@ -203,7 +214,11 @@ class _MiddleViewState extends State<_MiddleView> {
                 if (widget.isDrawingMode) {
                   setState(() {
                     RenderBox renderBox = context.findRenderObject() as RenderBox;
+
+                    Matrix4 matrix = _transformationController.value;
+                    
                     Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+                    localPosition = _applyMatrixToPoint(localPosition, matrix);
                     points.add(localPosition);  // Add the current drag position to the list
                   });
                 }
@@ -224,6 +239,12 @@ class _MiddleViewState extends State<_MiddleView> {
               )
             ),
     );
+  }
+
+  // Apply the matrix transformation to the point
+  Offset _applyMatrixToPoint(Offset point, Matrix4 matrix) {
+    final vmath.Vector3 transformed3 = matrix.transform3(vmath.Vector3(point.dx, point.dy, 0));
+    return Offset(transformed3.x, transformed3.y);
   }
 }
 
@@ -249,8 +270,6 @@ class _CanvasPainter extends CustomPainter {
       }
     }
   }
-
-
 
   @override
   bool shouldRepaint(_CanvasPainter oldDelegate) {
