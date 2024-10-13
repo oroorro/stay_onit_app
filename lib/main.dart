@@ -34,11 +34,19 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   bool isDrawingMode = false;
+  bool isZoomingMode = false;
 
 
   void setDrawingMode(bool enabled) {
     setState(() {
       isDrawingMode = enabled;
+    });
+  }
+
+  void setZoomingMode(bool enabled) {
+    setState(() {
+      isZoomingMode = enabled;
+      print("zoom Mode enabled");
     });
   }
 
@@ -50,9 +58,9 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Column(
         children: [
-          _TopNav(setDrawingMode: setDrawingMode),  // Pass callback to _TopNav
+          _TopNav(setDrawingMode: setDrawingMode, setZoomingMode: setZoomingMode,),  // Pass callback to _TopNav
           Expanded(
-            child: _MiddleView(isDrawingMode: isDrawingMode),  // Pass state to _MiddleView
+            child: _MiddleView(isDrawingMode: isDrawingMode, isZoomingMode: isZoomingMode),  // Pass state to _MiddleView
           ),
         ],
       ),
@@ -65,21 +73,22 @@ class _MyHomePageState extends State<MyHomePage> {
 
 class _TopNav extends StatelessWidget {
   final Function(bool) setDrawingMode;
+  final Function(bool) setZoomingMode;
 
-  const _TopNav({required this.setDrawingMode});
+  const _TopNav({required this.setDrawingMode, required this.setZoomingMode});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(8.0),
+      padding: const EdgeInsets.all(2.0),
       color: Colors.blueAccent,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _styledButton('Home'),
           ElevatedButton(
-            onPressed: () => {},  
-            child: const Text('Import'),
+            onPressed: () => setZoomingMode(true),  
+            child: const Text('Zoom'),
           ),
           ElevatedButton(
             onPressed: () => setDrawingMode(true),  // Enable drawing mode
@@ -136,8 +145,9 @@ class _TopNav extends StatelessWidget {
 
 class _MiddleView extends StatefulWidget {
   final bool isDrawingMode;  // Flag to indicate whether it's drawing mode
+  final bool isZoomingMode; 
 
-  const _MiddleView({required this.isDrawingMode});
+  const _MiddleView({required this.isDrawingMode, required this.isZoomingMode});
 
   @override
   State<_MiddleView> createState() => _MiddleViewState();
@@ -154,7 +164,7 @@ class _MiddleViewState extends State<_MiddleView> {
       maxScale: 4.0,  // Maximum zoom scale
       child: GestureDetector(
         onPanUpdate: (details) {
-          if (widget.isDrawingMode) {
+          if (widget.isDrawingMode && !widget.isZoomingMode) {
             setState(() {
               RenderBox renderBox = context.findRenderObject() as RenderBox;
               Offset localPosition = renderBox.globalToLocal(details.globalPosition);
@@ -163,7 +173,7 @@ class _MiddleViewState extends State<_MiddleView> {
           }
         },
         onPanEnd: (details) {
-          if (widget.isDrawingMode) {
+          if (widget.isDrawingMode && !widget.isZoomingMode) {
             setState(() {
               points.add(const Offset(-1, -1));  // Add a sentinel value to indicate a stroke end
             });
@@ -171,7 +181,7 @@ class _MiddleViewState extends State<_MiddleView> {
         },
         child: CustomPaint(
           painter: _CanvasPainter(points: points),  // Pass the points to the painter
-          size: Size.infinite,
+          size: const Size(1000, 1000),
         ),
       )
     );
