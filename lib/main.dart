@@ -12,7 +12,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Project Demo',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.white10),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(26, 255, 255, 255)),
         useMaterial3: true,
       ),
       home: const MyHomePage(title: 'Home'), 
@@ -190,14 +190,15 @@ class _MiddleViewState extends State<_MiddleView> {
         }
       },
       child: widget.isZoomingMode  // Disable gesture detection when zooming
-          ? Container(
-              color: Colors.transparent,
+          ? Container( //when zooming Mode is enabled 
+              color: const Color.fromARGB(255, 223, 188, 210),
+              //padding: const EdgeInsets.all(8),
               child: CustomPaint(
                 painter: _CanvasPainter(points: points),  // Pass the points to the painter
                 size: const Size(1000, 1000),
               ),
             )
-          : GestureDetector(
+          : GestureDetector( // Drawing mode is enabled 
               onPanUpdate: (details) {
                 if (widget.isDrawingMode) {
                   setState(() {
@@ -214,14 +215,15 @@ class _MiddleViewState extends State<_MiddleView> {
                   });
                 }
               },
-              child: CustomPaint(
-                painter: _CanvasPainter(points: points),
-                size: const Size(1000, 1000),
-              ),
+              child: ColoredBox(
+                color: const Color.fromARGB(255, 223, 188, 210),  // Background color
+                child: CustomPaint(
+                  painter: _CanvasPainter(points: points),
+                  size: const Size(1000, 1000),
+                ),
+              )
             ),
-    
     );
-    
   }
 }
 
@@ -247,6 +249,8 @@ class _CanvasPainter extends CustomPainter {
       }
     }
   }
+
+
 
   @override
   bool shouldRepaint(_CanvasPainter oldDelegate) {
