@@ -76,10 +76,7 @@ class _TopNav extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          ElevatedButton(
-            onPressed: () => {},  
-            child: const Text('Home'),
-          ),
+          _styledButton('Home'),
           ElevatedButton(
             onPressed: () => {},  
             child: const Text('Import'),
@@ -92,15 +89,46 @@ class _TopNav extends StatelessWidget {
             onPressed: () => setDrawingMode(false),  // Enable typing mode
             child: const Text('Type'),
           ),
-          ElevatedButton(
-            onPressed: () => {},  // Enable drawing mode
-            child: const Text('New'),
-          ),
-          ElevatedButton(
-            onPressed: () => {},  
-            child: const Text('Resize'),
-          ),
+          // ElevatedButton(
+          //   onPressed: () => {},  // Enable drawing mode
+          //   child: const Text('New'),
+          // ),
+          // ElevatedButton(
+          //   onPressed: () => {},  
+          //   child: const Text('Resize'),
+          // ),
         ],
+      ),
+    );
+  }
+
+  // Method to style each button
+  Widget _styledButton(String label) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10.0),  // Margin outside the button
+      child: SizedBox(
+        width: 70,  // Set button width
+        height: 40,  // 
+        child: ElevatedButton(
+          onPressed: () {
+            // Handle button press
+          },
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.all(12.0),  // Padding inside the button
+            backgroundColor: Colors.white,  // Button background color
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.0),  // Rounded corners
+            ),
+            elevation: 4,  // Add shadow for depth
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14.0,  // Text size
+              color: Colors.black,  // Text color
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -120,28 +148,34 @@ class _MiddleViewState extends State<_MiddleView> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onPanUpdate: (details) {
-        if (widget.isDrawingMode) {
-          setState(() {
-            RenderBox renderBox = context.findRenderObject() as RenderBox;
-            Offset localPosition = renderBox.globalToLocal(details.globalPosition);
-            points.add(localPosition);  // Add the current drag position to the list
-          });
-        }
-      },
-      onPanEnd: (details) {
-        if (widget.isDrawingMode) {
-          setState(() {
-            points.add(const Offset(-1, -1));  // Add a sentinel value to indicate a stroke end
-          });
-        }
-      },
-      child: CustomPaint(
-        painter: _CanvasPainter(points: points),  // Pass the points to the painter
-        size: Size.infinite,
-      ),
+     return InteractiveViewer(
+      boundaryMargin: const EdgeInsets.all(double.infinity),  // Allow panning without limits
+      minScale: 0.5,  // Minimum zoom scale
+      maxScale: 4.0,  // Maximum zoom scale
+      child: GestureDetector(
+        onPanUpdate: (details) {
+          if (widget.isDrawingMode) {
+            setState(() {
+              RenderBox renderBox = context.findRenderObject() as RenderBox;
+              Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+              points.add(localPosition);  // Add the current drag position to the list
+            });
+          }
+        },
+        onPanEnd: (details) {
+          if (widget.isDrawingMode) {
+            setState(() {
+              points.add(const Offset(-1, -1));  // Add a sentinel value to indicate a stroke end
+            });
+          }
+        },
+        child: CustomPaint(
+          painter: _CanvasPainter(points: points),  // Pass the points to the painter
+          size: Size.infinite,
+        ),
+      )
     );
+    
   }
 }
 
