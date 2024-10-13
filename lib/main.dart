@@ -176,7 +176,7 @@ class _MiddleViewState extends State<_MiddleView> {
      return InteractiveViewer(
       transformationController: _transformationController,
       boundaryMargin: const EdgeInsets.all(double.infinity),  // Allow panning without limits
-      minScale: 0.5,  // Minimum zoom scale
+      minScale: 0.2,  // Minimum zoom scale
       maxScale: 4.0,  // Maximum zoom scale
       onInteractionStart: (details) {
         if (widget.isZoomingMode) {
@@ -190,8 +190,6 @@ class _MiddleViewState extends State<_MiddleView> {
           setState(() {
             totalPanOffset += details.focalPointDelta;
           });
-          print('Panning Offset: $totalPanOffset');
-           print('Panned dx: ${details.focalPointDelta.dx} dy: ${details.focalPointDelta.dy}');
           print('Zoom scale: ${details.scale}');
         }
       },
@@ -241,11 +239,13 @@ class _MiddleViewState extends State<_MiddleView> {
     );
   }
 
-  // Apply the matrix transformation to the point
   Offset _applyMatrixToPoint(Offset point, Matrix4 matrix) {
-    final vmath.Vector3 transformed3 = matrix.transform3(vmath.Vector3(point.dx, point.dy, 0));
+    // Apply the inverse of the transformation matrix
+    Matrix4 inverseMatrix = Matrix4.inverted(matrix);
+    final vmath.Vector3 transformed3 = inverseMatrix.transform3(vmath.Vector3(point.dx, point.dy, 0));
     return Offset(transformed3.x, transformed3.y);
   }
+
 }
 
 
