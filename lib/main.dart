@@ -3,6 +3,7 @@ import 'package:vector_math/vector_math_64.dart' as vmath;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:cupertino_icons/cupertino_icons.dart';
+import 'dart:ui' as ui;
 
 enum AppState {
   drawing,
@@ -143,7 +144,10 @@ class _TopNav extends StatelessWidget {
                 context.read<StateManagerModel>().updateCurrentState(AppState.erasing);
               }
             ),
-          _styledButton(Icons.highlight_alt, null, 'Lasso'),
+          _styledButton(Icons.highlight_alt, null, 'Lasso',
+          (){
+            context.read<StateManagerModel>().updateCurrentState(AppState.lassoing);
+          }),
           _styledButton(Icons.open_in_full, null, 'Resize'),
         ],
       ),
@@ -183,13 +187,6 @@ class _TopNav extends StatelessWidget {
               ],
             ]
             )
-          // child: Text(
-          //   label,
-          //   style: const TextStyle(
-          //     fontSize: 14.0,  // Text size
-          //     color: Colors.black,  // Text color
-          //   ),
-          // ),
         ),
       ),
     );
@@ -249,10 +246,16 @@ class _MiddleViewState extends State<_MiddleView> {
           ? Container( //when zooming Mode is enabled 
               color: const Color.fromARGB(255, 223, 188, 210),
               //padding: const EdgeInsets.all(8),
-              child: CustomPaint(
-                painter: _CanvasPainter(points: points),  // Pass the points to the painter
-                size: const Size(1000, 1000),
-              ),
+              child: (() {
+                print('Current points:');
+                  for (var point in points) {
+                    print(point); // Print each point individually
+                  }// Print points to console
+                return CustomPaint(
+                  painter: _CanvasPainter(points: points),  // Pass the points to the painter
+                  size: const Size(1000, 1000),
+                );
+              })(), 
             )
           : GestureDetector( // Drawing mode is enabled 
               onPanUpdate: (details) {
@@ -304,8 +307,15 @@ class _MiddleViewState extends State<_MiddleView> {
     RenderBox renderBox = context.findRenderObject() as RenderBox;
     Offset localPosition = renderBox.globalToLocal(globalPosition);
 
-    print("local pos: ${localPosition}");
-    points.removeWhere((point) => (point - localPosition).distance < eraserRadius);
+    // Track the indices of the points to remove
+    setState(() {
+      // Remove points near the eraser and insert a sentinel value (-1, -1) to break the line
+      for (int i = 0; i < points.length; i++) {
+        if ((points[i] - localPosition).distance < eraserRadius) {
+          points[i] = const Offset(-1, -1);  // Insert sentinel value to break the line
+        }
+      }
+    });
   }
 
 }
@@ -323,12 +333,14 @@ class _CanvasPainter extends CustomPainter {
     Paint paint = Paint()
       ..color = Colors.blue
       ..strokeCap = StrokeCap.round
-      ..strokeWidth = 5.0;
+      ..strokeWidth = 15.0;
 
+    //canvas.drawPoints(ui.PointMode.points, points, paint);
     for (int i = 0; i < points.length - 1; i++) {
       if (points[i] != const Offset(-1, -1) && points[i + 1] != const Offset(-1, -1)) {
         // Draw a line between consecutive points, excluding sentinel (-1, -1)
         canvas.drawLine(points[i], points[i + 1], paint);
+        
       }
     }
   }
