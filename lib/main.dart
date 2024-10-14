@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:vector_math/vector_math_64.dart' as vmath;
+import 'package:flutter_svg/flutter_svg.dart';
+
+
+
+
+
+
+
 
 void main() {
   runApp(const MyApp());
@@ -81,36 +89,56 @@ class _TopNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(2.0),
+      padding: const EdgeInsets.symmetric(vertical: 5.0),
       color: Colors.blueAccent,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        //mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _styledButton('Home'),
-          ElevatedButton(
-            onPressed: (){
+          _styledButton(Icons.home,null, 'Home'),
+          _styledButton(Icons.assignment, null, 'Markdown'),
+          _styledButton(Icons.zoom_in, null, 'Zoom', 
+            (){
               setZoomingMode(true);
               setDrawingMode(false);
               print('Zoom Mode: true, Drawing Mode: false');
-              },  
-            child: const Text('Zoom'),
+            }
           ),
-          ElevatedButton(
-            onPressed: (){
+          _styledButton(Icons.brush, null, 'Paint', 
+            (){
               setZoomingMode(false);
               setDrawingMode(true);
               print('Zoom Mode: false, Drawing Mode: true');
-              },    // Enable drawing mode
-            child: const Text('Draw'),
+            }
           ),
-          ElevatedButton(
-            onPressed: (){
-              setZoomingMode(false);
-              setDrawingMode(true);
-              print('Zoom Mode: false, Typing Mode: true');
-              },   // Enable typing mode
-            child: const Text('Type'),
-          ),
+          
+          _styledButton(Icons.add, null, 'New Block'),
+          _styledButton(Icons.publish, null, 'Import'),
+          // ElevatedButton.icon(
+          //   onPressed: (){
+          //     setZoomingMode(true);
+          //     setDrawingMode(false);
+          //     print('Zoom Mode: true, Drawing Mode: false');
+          //     },  
+          //     icon: Icon(Icons.zoom_in),
+          //     label: Text('Zoom'),
+          //   // child: const Text('Zoom'),
+          // ),
+          // ElevatedButton(
+          //   onPressed: (){
+          //     setZoomingMode(false);
+          //     setDrawingMode(true);
+          //     print('Zoom Mode: false, Drawing Mode: true');
+          //     },    // Enable drawing mode
+          //   child: const Text('Draw'),
+          // ),
+          // ElevatedButton(
+          //   onPressed: (){
+          //     setZoomingMode(false);
+          //     setDrawingMode(true);
+          //     print('Zoom Mode: false, Typing Mode: true');
+          //     },   // Enable typing mode
+          //   child: const Text('Type'),
+          // ),
           // ElevatedButton(
           //   onPressed: () => {},  // Enable drawing mode
           //   child: const Text('New'),
@@ -125,31 +153,44 @@ class _TopNav extends StatelessWidget {
   }
 
   // Method to style each button
-  Widget _styledButton(String label) {
+  Widget _styledButton(IconData? icon, String? svgAssetPath, String label, [void Function()? delegatedOnPressed]) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10.0),  // Margin outside the button
+      margin: const EdgeInsets.fromLTRB(0, 0, 8, 0),  // Margin outside the button
       child: SizedBox(
-        width: 70,  // Set button width
+        width: 40,  // Set button width
         height: 40,  // 
         child: ElevatedButton(
-          onPressed: () {
-            // Handle button press
+          onPressed: delegatedOnPressed ?? (){
+
           },
           style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.all(12.0),  // Padding inside the button
+            padding: const EdgeInsets.all(1.0),  // Padding inside the button
             backgroundColor: Colors.white,  // Button background color
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12.0),  // Rounded corners
             ),
             elevation: 4,  // Add shadow for depth
           ),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14.0,  // Text size
-              color: Colors.black,  // Text color
-            ),
-          ),
+          child: Column( children: [
+            // Conditionally render either an Icon or SvgPicture based on the parameters
+            if (icon != null) ...[
+              Icon(icon, size: 36.0),  // Display Icon if IconData is passed
+            ] else if (svgAssetPath != null) ...[
+              SvgPicture.asset(
+                svgAssetPath,
+                width: 50,
+                height: 50,
+              ),  // Display SvgPicture if an SVG asset path is passed
+              ],
+            ]
+            )
+          // child: Text(
+          //   label,
+          //   style: const TextStyle(
+          //     fontSize: 14.0,  // Text size
+          //     color: Colors.black,  // Text color
+          //   ),
+          // ),
         ),
       ),
     );
