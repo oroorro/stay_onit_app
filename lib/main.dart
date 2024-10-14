@@ -1,16 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:vector_math/vector_math_64.dart' as vmath;
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
+import 'package:cupertino_icons/cupertino_icons.dart';
 
+enum AppState {
+  drawing,
+  lassoing,
+  erasing,
+  resizing,
+  none,
+}
 
+// Model to hold and manage states
+class StateManagerModel extends ChangeNotifier {
 
+  AppState _currentState = AppState.none;
 
+  AppState get currentState => _currentState;
 
-
+  void updateCurrentState(AppState newState) {
+    print("newState is :${newState}");
+    _currentState = newState;
+    notifyListeners();
+  }
+}
 
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => StateManagerModel(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -108,45 +131,20 @@ class _TopNav extends StatelessWidget {
               setZoomingMode(false);
               setDrawingMode(true);
               print('Zoom Mode: false, Drawing Mode: true');
+              context.read<StateManagerModel>().updateCurrentState(AppState.drawing);
             }
           ),
-          
           _styledButton(Icons.add, null, 'New Block'),
           _styledButton(Icons.publish, null, 'Import'),
-          // ElevatedButton.icon(
-          //   onPressed: (){
-          //     setZoomingMode(true);
-          //     setDrawingMode(false);
-          //     print('Zoom Mode: true, Drawing Mode: false');
-          //     },  
-          //     icon: Icon(Icons.zoom_in),
-          //     label: Text('Zoom'),
-          //   // child: const Text('Zoom'),
-          // ),
-          // ElevatedButton(
-          //   onPressed: (){
-          //     setZoomingMode(false);
-          //     setDrawingMode(true);
-          //     print('Zoom Mode: false, Drawing Mode: true');
-          //     },    // Enable drawing mode
-          //   child: const Text('Draw'),
-          // ),
-          // ElevatedButton(
-          //   onPressed: (){
-          //     setZoomingMode(false);
-          //     setDrawingMode(true);
-          //     print('Zoom Mode: false, Typing Mode: true');
-          //     },   // Enable typing mode
-          //   child: const Text('Type'),
-          // ),
-          // ElevatedButton(
-          //   onPressed: () => {},  // Enable drawing mode
-          //   child: const Text('New'),
-          // ),
-          // ElevatedButton(
-          //   onPressed: () => {},  
-          //   child: const Text('Resize'),
-          // ),
+          _styledButton(null,
+              'assets/images/eraser-icon.svg',  // SVG asset path
+              'Logo',                           // Label
+              (){
+                context.read<StateManagerModel>().updateCurrentState(AppState.erasing);
+              }
+            ),
+          _styledButton(Icons.highlight_alt, null, 'Lasso'),
+          _styledButton(Icons.open_in_full, null, 'Resize'),
         ],
       ),
     );
@@ -155,7 +153,7 @@ class _TopNav extends StatelessWidget {
   // Method to style each button
   Widget _styledButton(IconData? icon, String? svgAssetPath, String label, [void Function()? delegatedOnPressed]) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(0, 0, 8, 0),  // Margin outside the button
+      margin: const EdgeInsets.fromLTRB(0, 0, 7, 0),  // Margin outside the button
       child: SizedBox(
         width: 40,  // Set button width
         height: 40,  // 
@@ -173,14 +171,15 @@ class _TopNav extends StatelessWidget {
           ),
           child: Column( children: [
             // Conditionally render either an Icon or SvgPicture based on the parameters
-            if (icon != null) ...[
-              Icon(icon, size: 36.0),  // Display Icon if IconData is passed
-            ] else if (svgAssetPath != null) ...[
+            if (icon != null) ...[ // Display Icon if IconData is passed
+              Icon(icon, size: 36.0),  
+            ] 
+            else if (svgAssetPath != null) ...[  // Display SvgPicture if an SVG asset path is passed
               SvgPicture.asset(
                 svgAssetPath,
-                width: 50,
-                height: 50,
-              ),  // Display SvgPicture if an SVG asset path is passed
+                width: 30,
+                height: 30,
+              ), 
               ],
             ]
             )
@@ -212,8 +211,15 @@ class _MiddleViewState extends State<_MiddleView> {
   Offset totalPanOffset = Offset.zero;
   final TransformationController  _transformationController = TransformationController();
 
+  double eraserRadius = 15.0;
+
+
+
   @override
   Widget build(BuildContext context) {
+
+    final AppState currentState = context.watch<StateManagerModel>().currentState; 
+
      return InteractiveViewer(
       transformationController: _transformationController,
       boundaryMargin: const EdgeInsets.all(double.infinity),  // Allow panning without limits
@@ -250,7 +256,8 @@ class _MiddleViewState extends State<_MiddleView> {
             )
           : GestureDetector( // Drawing mode is enabled 
               onPanUpdate: (details) {
-                if (widget.isDrawingMode) {
+                //if (widget.isDrawingMode) {
+                  if(currentState == AppState.drawing){
                   setState(() {
                     RenderBox renderBox = context.findRenderObject() as RenderBox;
 
@@ -259,6 +266,11 @@ class _MiddleViewState extends State<_MiddleView> {
                     Offset localPosition = renderBox.globalToLocal(details.globalPosition);
                     localPosition = _applyMatrixToPoint(localPosition, matrix);
                     points.add(localPosition);  // Add the current drag position to the list
+                  });
+                }else if(currentState == AppState.erasing){ // Perform erasing
+                  
+                   setState(() {
+                    _erasePoint(details.globalPosition);  
                   });
                 }
               },
@@ -285,6 +297,15 @@ class _MiddleViewState extends State<_MiddleView> {
     Matrix4 inverseMatrix = Matrix4.inverted(matrix);
     final vmath.Vector3 transformed3 = inverseMatrix.transform3(vmath.Vector3(point.dx, point.dy, 0));
     return Offset(transformed3.x, transformed3.y);
+  }
+
+  // Erase points that are near the eraser's position
+  void _erasePoint(Offset globalPosition) {
+    RenderBox renderBox = context.findRenderObject() as RenderBox;
+    Offset localPosition = renderBox.globalToLocal(globalPosition);
+
+    print("local pos: ${localPosition}");
+    points.removeWhere((point) => (point - localPosition).distance < eraserRadius);
   }
 
 }
