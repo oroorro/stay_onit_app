@@ -11,6 +11,7 @@ enum AppState {
   erasing,
   resizing,
   none,
+  zooming,
 }
 
 // Model to hold and manage states
@@ -146,6 +147,7 @@ class _TopNav extends StatelessWidget {
             ),
           _styledButton(Icons.highlight_alt, null, 'Lasso',
           (){
+            print("lasso started");
             context.read<StateManagerModel>().updateCurrentState(AppState.lassoing);
           }),
           _styledButton(Icons.open_in_full, null, 'Resize'),
@@ -208,6 +210,8 @@ class _MiddleViewState extends State<_MiddleView> {
   Offset totalPanOffset = Offset.zero;
   final TransformationController  _transformationController = TransformationController();
 
+  List<Offset> lassoPoints = [];  //track lasso drawing 
+  List<Offset> selectedPoints = []; //track selected lines within the lasso area
   double eraserRadius = 15.0;
 
 
@@ -223,10 +227,6 @@ class _MiddleViewState extends State<_MiddleView> {
       minScale: 0.2,  // Minimum zoom scale
       maxScale: 4.0,  // Maximum zoom scale
       onInteractionStart: (details) {
-        if (widget.isZoomingMode) {
-          print('Zoom started' );
-          
-        }
       },
        onInteractionUpdate: (details) {
         if (widget.isZoomingMode) {
@@ -234,23 +234,20 @@ class _MiddleViewState extends State<_MiddleView> {
           setState(() {
             totalPanOffset += details.focalPointDelta;
           });
-          print('Zoom scale: ${details.scale}');
         }
       },
       onInteractionEnd: (details) {
-        if (widget.isZoomingMode) {
-          print('Zoom ended');
-        }
+
       },
-      child: widget.isZoomingMode  // Disable gesture detection when zooming
+      child: currentState == AppState.zooming //widget.isZoomingMode  // Disable gesture detection when zooming
           ? Container( //when zooming Mode is enabled 
               color: const Color.fromARGB(255, 223, 188, 210),
               //padding: const EdgeInsets.all(8),
               child: (() {
-                print('Current points:');
-                  for (var point in points) {
-                    print(point); // Print each point individually
-                  }// Print points to console
+                // print('Current points:');
+                //   for (var point in points) {
+                //     print(point); // Print each point individually
+                //   }// Print points to console
                 return CustomPaint(
                   painter: _CanvasPainter(points: points),  // Pass the points to the painter
                   size: const Size(1000, 1000),
@@ -271,14 +268,25 @@ class _MiddleViewState extends State<_MiddleView> {
                     points.add(localPosition);  // Add the current drag position to the list
                   });
                 }else if(currentState == AppState.erasing){ // Perform erasing
-                  
                    setState(() {
                     _erasePoint(details.globalPosition);  
                   });
                 }
+                else if(currentState == AppState.lassoing){ //Perform Lasso
+                  RenderBox renderBox = context.findRenderObject() as RenderBox;
+                  Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+                  lassoPoints.add(localPosition);  // Store points for the lasso trail
+                }
               },
               onPanEnd: (details) {
-                if (widget.isDrawingMode) {
+                if (currentState == AppState.lassoing && isLassoClosed()) {
+                  //  Close lasso and check for lines within the area
+                  Path lassoPath = createLassoPath();
+                  setState(() {
+                    selectedPoints = _getSelectedLines(lassoPath);  // Select lines within the lasso
+                  });
+                }
+                else if (widget.isDrawingMode) {
                   setState(() {
                     points.add(const Offset(-1, -1));  // Add a sentinel value to indicate a stroke end
                   });
@@ -286,15 +294,60 @@ class _MiddleViewState extends State<_MiddleView> {
               },
               child: ColoredBox(
                 color: const Color.fromARGB(255, 223, 188, 210),  // Background color
-                child: CustomPaint(
-                  painter: _CanvasPainter(points: points),
-                  size: const Size(1000, 1000),
-                ),
+                child: Stack(
+                  children: [
+                    CustomPaint(
+                      painter: _CanvasPainter(points: points),
+                      size: const Size(1000, 1000),
+                    ),
+                    CustomPaint(
+                      painter: _LassoCreater(
+                        selectedPoints: selectedPoints, 
+                        lassoPath: createLassoPath(),
+                      ),
+                      size: const Size(1000, 1000),
+                    ),
+                  ],
+                ) 
               )
             ),
     );
   }
+  bool isLassoClosed() {
+    if (lassoPoints.length > 2) {
+      return (lassoPoints.first - lassoPoints.last).distance < 10.0;  // Threshold to close lasso
+    }
+    return false;
+  }
 
+
+  Path createLassoPath() {
+    Path path = Path();
+    if (lassoPoints.isNotEmpty) {
+      path.moveTo(lassoPoints.first.dx, lassoPoints.first.dy);
+      for (var point in lassoPoints) {
+        path.lineTo(point.dx, point.dy);
+      }
+      if (isLassoClosed()) {
+        path.close();  // Close the lasso if necessary
+      }
+    }
+    return path;
+  }
+
+  // Check which lines are inside the lasso area (both start and end of the line must be inside)
+  List<Offset> _getSelectedLines(Path lassoPath) {
+    List<Offset> selected = [];
+    for (int i = 0; i < points.length - 1; i++) {
+      if (points[i] != const Offset(-1, -1) && points[i + 1] != const Offset(-1, -1)) {
+        if (lassoPath.contains(points[i]) && lassoPath.contains(points[i + 1])) {
+          selected.add(points[i]);     // Add both start and end points to the selected list
+          selected.add(points[i + 1]); // Add the end point
+        }
+      }
+    }
+    return selected;  // Return selected points within the lasso area
+  }
   Offset _applyMatrixToPoint(Offset point, Matrix4 matrix) {
     // Apply the inverse of the transformation matrix
     Matrix4 inverseMatrix = Matrix4.inverted(matrix);
@@ -322,10 +375,69 @@ class _MiddleViewState extends State<_MiddleView> {
 
 
 
+class _LassoCreater extends CustomPainter{
+  final List<Offset> selectedPoints;
+  final Path lassoPath;
+
+  _LassoCreater({required this.selectedPoints, required this.lassoPath});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    Paint paint = Paint()
+      ..color = Colors.blue
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 5.0;
+
+    // Highlight selected lines
+    paint.color = Colors.red;  // Use a different color to highlight selected lines
+    for (int i = 0; i < selectedPoints.length - 1; i += 2) {
+      canvas.drawLine(selectedPoints[i], selectedPoints[i + 1], paint);
+    }
+
+    // Draw the bounding box for the selected points
+    if (selectedPoints.isNotEmpty) {
+      Rect boundingBox = getBoundingBox(selectedPoints);
+      paint.color = Colors.green;
+      paint.style = PaintingStyle.stroke;
+      canvas.drawRect(boundingBox, paint);
+    }
+
+    // Draw lasso path
+    if (lassoPath != null) {
+      paint.color = Colors.purple;
+      paint.style = PaintingStyle.stroke;
+      canvas.drawPath(lassoPath, paint);
+    }
+  }
+
+    // Calculate the bounding box for the selected points
+  Rect getBoundingBox(List<Offset> points) {
+    if (points.isEmpty) return Rect.zero;
+
+    // Find the minimum and maximum x and y coordinates
+    double minX = points.map((p) => p.dx).reduce((a, b) => a < b ? a : b);
+    double maxX = points.map((p) => p.dx).reduce((a, b) => a > b ? a : b);
+    double minY = points.map((p) => p.dy).reduce((a, b) => a < b ? a : b);
+    double maxY = points.map((p) => p.dy).reduce((a, b) => a > b ? a : b);
+
+    // Create a rectangle from the min and max values
+    return Rect.fromLTRB(minX, minY, maxX, maxY);
+  }
+
+
+
+  @override
+  bool shouldRepaint(_LassoCreater oldDelegate) {
+    return true;  // Always repaint when the points list updates
+  }
+
+}
+
+
 
 class _CanvasPainter extends CustomPainter {
   final List<Offset> points;  // List of points to draw
-
+  
   _CanvasPainter({required this.points});
 
   @override
