@@ -217,6 +217,8 @@ class _MiddleViewState extends State<_MiddleView> {
   List<Offset> selectedPoints = []; //track selected lines within the lasso area
   List<Offset> lassoPath = []; //track lasso drawing 
 
+  bool isMovingPoints = false; // Track if points are being moved
+  Offset initialDragOffset = Offset.zero; // Track the initial drag start point
 
   @override
   Widget build(BuildContext context) {
@@ -262,7 +264,13 @@ class _MiddleViewState extends State<_MiddleView> {
                   if(currentState == AppState.drawing){
                     currentPath = [details.localPosition];
                   }else if(currentState == AppState.lassoing){
-                    lassoPath = [details.localPosition];
+                    if(selectedPoints.isNotEmpty){
+                      // Start moving points if any are selected
+                      isMovingPoints = true;
+                      initialDragOffset = details.localPosition;
+                    }else{
+                      lassoPath = [details.localPosition];
+                    } 
                   }
                 });
               },
@@ -289,11 +297,19 @@ class _MiddleViewState extends State<_MiddleView> {
                 else if(currentState == AppState.lassoing){ //Perform Lasso
                   //draw points when dragging on the canvas 
                   setState(() {
-                    RenderBox renderBox = context.findRenderObject() as RenderBox;
-                    Offset localPosition = renderBox.globalToLocal(details.globalPosition);
-                    //lassoPoints.add(localPosition);  // Store points for the lasso trail
-                    lassoPath.add(localPosition);
 
+                    if (isMovingPoints && selectedPoints.isNotEmpty){
+                        Offset delta = details.localPosition - initialDragOffset;
+                      for (int i = 0; i < selectedPoints.length; i++) {
+                        selectedPoints[i] = selectedPoints[i] + delta;
+                      }
+                      initialDragOffset = details.localPosition; // Update the drag point
+                    }else{
+                      RenderBox renderBox = context.findRenderObject() as RenderBox;
+                      Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+                      //lassoPoints.add(localPosition);  // Store points for the lasso trail
+                      lassoPath.add(localPosition);
+                    }
                   });
                 }
               },
@@ -315,9 +331,13 @@ class _MiddleViewState extends State<_MiddleView> {
                   //   print('Lasso closed, selecting points');
                   // }
                    // Finalize the lasso
-                  selectPointsInsideLasso();
-                  lassoPath = []; // Clear lasso after selection
-
+                  if (isMovingPoints) {
+                  // Stop moving points
+                    isMovingPoints = false;
+                  }else{
+                     selectPointsInsideLasso();
+                    lassoPath = []; // Clear lasso after selection
+                  }
                 }
                 else if (widget.isDrawingMode) {
                   setState(() {
