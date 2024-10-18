@@ -209,16 +209,13 @@ class _MiddleViewState extends State<_MiddleView> {
   //List<Offset> points = [];  // Store the points where the user drags
   Offset totalPanOffset = Offset.zero;
   final TransformationController  _transformationController = TransformationController();
-
-  List<Offset> lassoPoints = [];  //track lasso drawing 
-  List<Offset> selectedPoints = []; //track selected lines within the lasso area
   double eraserRadius = 15.0;
 
 
   List<List<Offset>> paths = [];
   List<Offset> currentPath = [];
-  // List<Offset> selectedPoints = [];
-  // List<Offset> lassoPath = [];
+  List<Offset> selectedPoints = []; //track selected lines within the lasso area
+  List<Offset> lassoPath = []; //track lasso drawing 
 
 
   @override
@@ -254,7 +251,7 @@ class _MiddleViewState extends State<_MiddleView> {
                 //     print(point); // Print each point individually
                 //   }// Print points to console
                 return CustomPaint(
-                  painter: DrawingPainter(paths, currentPath),  // Pass the points to the painter
+                  painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath),  // Pass the points to the painter
                   size: const Size(1000, 1000),
                 );
               })(), 
@@ -262,7 +259,11 @@ class _MiddleViewState extends State<_MiddleView> {
           : GestureDetector( // Drawing mode is enabled 
               onPanStart: (details) {
                 setState(() {
-                  currentPath = [details.localPosition];
+                  if(currentState == AppState.drawing){
+                    currentPath = [details.localPosition];
+                  }else if(currentState == AppState.lassoing){
+                    lassoPath = [details.localPosition];
+                  }
                 });
               },
               onPanUpdate: (details) {
@@ -277,6 +278,7 @@ class _MiddleViewState extends State<_MiddleView> {
                     localPosition = _applyMatrixToPoint(localPosition, matrix);
                     //points.add(localPosition);  // Add the current drag position to the list
                     currentPath.add(details.localPosition);  //uc-7
+                   
                     
                   });
                 }else if(currentState == AppState.erasing){ // Perform erasing
@@ -289,12 +291,14 @@ class _MiddleViewState extends State<_MiddleView> {
                   setState(() {
                     RenderBox renderBox = context.findRenderObject() as RenderBox;
                     Offset localPosition = renderBox.globalToLocal(details.globalPosition);
-                    lassoPoints.add(localPosition);  // Store points for the lasso trail
+                    //lassoPoints.add(localPosition);  // Store points for the lasso trail
+                    lassoPath.add(localPosition);
+
                   });
                 }
               },
               onPanEnd: (details) {
-                if (currentState == AppState.lassoing && isLassoClosed()) {
+                if (currentState == AppState.lassoing ) {
 
                   // Check if lasso is closed or delete it if not
                   // if (!isLassoClosed()) {
@@ -310,6 +314,9 @@ class _MiddleViewState extends State<_MiddleView> {
                   //   });
                   //   print('Lasso closed, selecting points');
                   // }
+                   // Finalize the lasso
+                  selectPointsInsideLasso();
+                  lassoPath = []; // Clear lasso after selection
 
                 }
                 else if (widget.isDrawingMode) {
@@ -325,20 +332,20 @@ class _MiddleViewState extends State<_MiddleView> {
                 child: Stack(
                   children: [
                     CustomPaint(
-                      painter: DrawingPainter(paths, currentPath),
+                      painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath),
                       size: const Size(1000, 1000),
                     ),
                     // CustomPaint(  //old version of drawing lines 
                     //   painter: _CanvasPainter(points: points),
                     //   size: const Size(1000, 1000),
                     // ),
-                    CustomPaint(
-                      painter: _LassoCreater(
-                        selectedPoints: selectedPoints, 
-                        lassoPath: createLassoPath(),
-                      ),
-                      size: const Size(1000, 1000),
-                    ),
+                    // CustomPaint(
+                    //   painter: _LassoCreater(
+                    //     selectedPoints: selectedPoints, 
+                    //     lassoPath: createLassoPath(),
+                    //   ),
+                    //   size: const Size(1000, 1000),
+                    // ),
                     
                   ],
                 ) 
@@ -346,27 +353,41 @@ class _MiddleViewState extends State<_MiddleView> {
             ),
     );
   }
-  bool isLassoClosed() {
-    if (lassoPoints.length > 2) {
-      return (lassoPoints.first - lassoPoints.last).distance < 10.0;  // Threshold to close lasso
+
+  // bool isLassoClosed() {
+  //   if (lassoPoints.length > 2) {
+  //     return (lassoPoints.first - lassoPoints.last).distance < 10.0;  // Threshold to close lasso
+  //   }
+  //   return false;
+  // }
+
+  void selectPointsInsideLasso() {
+    selectedPoints.clear();
+    // Create a Path from lasso points
+    final path = ui.Path()..addPolygon(lassoPath, true);
+    for (var pathList in paths) {
+      for (var point in pathList) {
+        if (path.contains(point)) {
+          selectedPoints.add(point);
+        }
+      }
     }
-    return false;
   }
 
 
-  Path createLassoPath() {
-    Path path = Path();
-    if (lassoPoints.isNotEmpty) {
-      path.moveTo(lassoPoints.first.dx, lassoPoints.first.dy);
-      for (var point in lassoPoints) {
-        path.lineTo(point.dx, point.dy);
-      }
-      if (isLassoClosed()) {
-        path.close();  // Close the lasso if necessary
-      }
-    }
-    return path;
-  }
+  // Path createLassoPath() {
+  //   Path path = Path();
+  //   if (lassoPoints.isNotEmpty) {
+  //     path.moveTo(lassoPoints.first.dx, lassoPoints.first.dy);
+  //     for (var point in lassoPoints) {
+  //       path.lineTo(point.dx, point.dy);
+  //     }
+  //     if (isLassoClosed()) {
+  //       path.close();  // Close the lasso if necessary
+  //     }
+  //   }
+  //   return path;
+  // }
 
   // Check which lines are inside the lasso area (both start and end of the line must be inside)
   // List<Offset> _getSelectedLines(Path lassoPath) {
@@ -502,8 +523,10 @@ class _CanvasPainter extends CustomPainter {
 class DrawingPainter extends CustomPainter {
   final List<List<Offset>> paths;
   final List<Offset> currentPath;
+  final List<Offset> selectedPoints;
+  final List<Offset> lassoPath;
 
-  DrawingPainter(this.paths, this.currentPath);
+  DrawingPainter(this.paths, this.currentPath, this.selectedPoints, this.lassoPath);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -530,6 +553,28 @@ class DrawingPainter extends CustomPainter {
         canvas.drawLine(currentPath[i], currentPath[i + 1], paint);
       }
     }
+
+    // Draw selected points
+    final selectedPaint = Paint()
+      ..color = Colors.red
+      ..style = PaintingStyle.fill;
+
+    for (var point in selectedPoints) {
+      canvas.drawCircle(point, 5.0, selectedPaint);
+    }
+
+    // Draw lasso path
+    if (lassoPath.isNotEmpty) {
+      final lassoPaint = Paint()
+        ..color = Colors.green
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+      for (int i = 0; i < lassoPath.length - 1; i++) {
+        canvas.drawLine(lassoPath[i], lassoPath[i + 1], lassoPaint);
+      }
+    }
+
+
   }
 
   @override
