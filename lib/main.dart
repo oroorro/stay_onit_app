@@ -206,7 +206,7 @@ class _MiddleView extends StatefulWidget {
 }
 
 class _MiddleViewState extends State<_MiddleView> {
-  List<Offset> points = [];  // Store the points where the user drags
+  //List<Offset> points = [];  // Store the points where the user drags
   Offset totalPanOffset = Offset.zero;
   final TransformationController  _transformationController = TransformationController();
 
@@ -214,6 +214,11 @@ class _MiddleViewState extends State<_MiddleView> {
   List<Offset> selectedPoints = []; //track selected lines within the lasso area
   double eraserRadius = 15.0;
 
+
+  List<List<Offset>> paths = [];
+  List<Offset> currentPath = [];
+  // List<Offset> selectedPoints = [];
+  // List<Offset> lassoPath = [];
 
 
   @override
@@ -249,12 +254,17 @@ class _MiddleViewState extends State<_MiddleView> {
                 //     print(point); // Print each point individually
                 //   }// Print points to console
                 return CustomPaint(
-                  painter: _CanvasPainter(points: points),  // Pass the points to the painter
+                  painter: DrawingPainter(paths, currentPath),  // Pass the points to the painter
                   size: const Size(1000, 1000),
                 );
               })(), 
             )
           : GestureDetector( // Drawing mode is enabled 
+              onPanStart: (details) {
+                setState(() {
+                  currentPath = [details.localPosition];
+                });
+              },
               onPanUpdate: (details) {
                 //if (widget.isDrawingMode) {
                   if(currentState == AppState.drawing){
@@ -265,30 +275,48 @@ class _MiddleViewState extends State<_MiddleView> {
                     
                     Offset localPosition = renderBox.globalToLocal(details.globalPosition);
                     localPosition = _applyMatrixToPoint(localPosition, matrix);
-                    points.add(localPosition);  // Add the current drag position to the list
+                    //points.add(localPosition);  // Add the current drag position to the list
+                    currentPath.add(details.localPosition);  //uc-7
+                    
                   });
                 }else if(currentState == AppState.erasing){ // Perform erasing
-                   setState(() {
-                    _erasePoint(details.globalPosition);  
-                  });
+                  //  setState(() {
+                  //   _erasePoint(details.globalPosition);  
+                  // });
                 }
                 else if(currentState == AppState.lassoing){ //Perform Lasso
-                  RenderBox renderBox = context.findRenderObject() as RenderBox;
-                  Offset localPosition = renderBox.globalToLocal(details.globalPosition);
-                  lassoPoints.add(localPosition);  // Store points for the lasso trail
+                  //draw points when dragging on the canvas 
+                  setState(() {
+                    RenderBox renderBox = context.findRenderObject() as RenderBox;
+                    Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+                    lassoPoints.add(localPosition);  // Store points for the lasso trail
+                  });
                 }
               },
               onPanEnd: (details) {
                 if (currentState == AppState.lassoing && isLassoClosed()) {
-                  //  Close lasso and check for lines within the area
-                  Path lassoPath = createLassoPath();
-                  setState(() {
-                    selectedPoints = _getSelectedLines(lassoPath);  // Select lines within the lasso
-                  });
+
+                  // Check if lasso is closed or delete it if not
+                  // if (!isLassoClosed()) {
+                  //   setState(() {
+                  //     lassoPoints.clear();  // Clear the lasso if not closed
+                  //   });
+                  //   print('Lasso not closed, clearing points');
+                  // } else {
+                  //   // Optionally handle any other logic when the lasso is properly closed
+                  //   setState(() {
+                  //     // Use the lasso if needed, e.g., selecting points inside the lasso
+                  //     selectedPoints = _getSelectedLines(createLassoPath());
+                  //   });
+                  //   print('Lasso closed, selecting points');
+                  // }
+
                 }
                 else if (widget.isDrawingMode) {
                   setState(() {
-                    points.add(const Offset(-1, -1));  // Add a sentinel value to indicate a stroke end
+                    //points.add(const Offset(-1, -1));  // Add a sentinel value to indicate a stroke end
+                    paths.add(currentPath); // uc-7
+                    currentPath = []; // Clear current path for new drawing uc-7
                   });
                 }
               },
@@ -297,9 +325,13 @@ class _MiddleViewState extends State<_MiddleView> {
                 child: Stack(
                   children: [
                     CustomPaint(
-                      painter: _CanvasPainter(points: points),
+                      painter: DrawingPainter(paths, currentPath),
                       size: const Size(1000, 1000),
                     ),
+                    // CustomPaint(  //old version of drawing lines 
+                    //   painter: _CanvasPainter(points: points),
+                    //   size: const Size(1000, 1000),
+                    // ),
                     CustomPaint(
                       painter: _LassoCreater(
                         selectedPoints: selectedPoints, 
@@ -307,6 +339,7 @@ class _MiddleViewState extends State<_MiddleView> {
                       ),
                       size: const Size(1000, 1000),
                     ),
+                    
                   ],
                 ) 
               )
@@ -336,18 +369,18 @@ class _MiddleViewState extends State<_MiddleView> {
   }
 
   // Check which lines are inside the lasso area (both start and end of the line must be inside)
-  List<Offset> _getSelectedLines(Path lassoPath) {
-    List<Offset> selected = [];
-    for (int i = 0; i < points.length - 1; i++) {
-      if (points[i] != const Offset(-1, -1) && points[i + 1] != const Offset(-1, -1)) {
-        if (lassoPath.contains(points[i]) && lassoPath.contains(points[i + 1])) {
-          selected.add(points[i]);     // Add both start and end points to the selected list
-          selected.add(points[i + 1]); // Add the end point
-        }
-      }
-    }
-    return selected;  // Return selected points within the lasso area
-  }
+  // List<Offset> _getSelectedLines(Path lassoPath) {
+  //   List<Offset> selected = [];
+  //   for (int i = 0; i < points.length - 1; i++) {
+  //     if (points[i] != const Offset(-1, -1) && points[i + 1] != const Offset(-1, -1)) {
+  //       if (lassoPath.contains(points[i]) && lassoPath.contains(points[i + 1])) {
+  //         selected.add(points[i]);     // Add both start and end points to the selected list
+  //         selected.add(points[i + 1]); // Add the end point
+  //       }
+  //     }
+  //   }
+  //   return selected;  // Return selected points within the lasso area
+  // }
   Offset _applyMatrixToPoint(Offset point, Matrix4 matrix) {
     // Apply the inverse of the transformation matrix
     Matrix4 inverseMatrix = Matrix4.inverted(matrix);
@@ -356,20 +389,20 @@ class _MiddleViewState extends State<_MiddleView> {
   }
 
   // Erase points that are near the eraser's position
-  void _erasePoint(Offset globalPosition) {
-    RenderBox renderBox = context.findRenderObject() as RenderBox;
-    Offset localPosition = renderBox.globalToLocal(globalPosition);
+  // void _erasePoint(Offset globalPosition) {
+  //   RenderBox renderBox = context.findRenderObject() as RenderBox;
+  //   Offset localPosition = renderBox.globalToLocal(globalPosition);
 
-    // Track the indices of the points to remove
-    setState(() {
-      // Remove points near the eraser and insert a sentinel value (-1, -1) to break the line
-      for (int i = 0; i < points.length; i++) {
-        if ((points[i] - localPosition).distance < eraserRadius) {
-          points[i] = const Offset(-1, -1);  // Insert sentinel value to break the line
-        }
-      }
-    });
-  }
+  //   // Track the indices of the points to remove
+  //   setState(() {
+  //     // Remove points near the eraser and insert a sentinel value (-1, -1) to break the line
+  //     for (int i = 0; i < points.length; i++) {
+  //       if ((points[i] - localPosition).distance < eraserRadius) {
+  //         points[i] = const Offset(-1, -1);  // Insert sentinel value to break the line
+  //       }
+  //     }
+  //   });
+  // }
 
 }
 
@@ -434,7 +467,7 @@ class _LassoCreater extends CustomPainter{
 }
 
 
-
+//previosly attempt on drawing lines  
 class _CanvasPainter extends CustomPainter {
   final List<Offset> points;  // List of points to draw
   
@@ -460,5 +493,47 @@ class _CanvasPainter extends CustomPainter {
   @override
   bool shouldRepaint(_CanvasPainter oldDelegate) {
     return true;  // Always repaint when the points list updates
+  }
+}
+
+
+
+//new line drawing Widget 
+class DrawingPainter extends CustomPainter {
+  final List<List<Offset>> paths;
+  final List<Offset> currentPath;
+
+  DrawingPainter(this.paths, this.currentPath);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Draw previous paths
+    for (var path in paths) {
+      if (path.isNotEmpty) {
+        final paint = Paint()
+          ..color = Colors.black
+          ..strokeCap = StrokeCap.round
+          ..strokeWidth = 5.0;
+        for (int i = 0; i < path.length - 1; i++) {
+          canvas.drawLine(path[i], path[i + 1], paint);
+        }
+      }
+    }
+
+    // Draw the current path being drawn
+    if (currentPath.isNotEmpty) {
+      final paint = Paint()
+        ..color = Colors.blue
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = 5.0;
+      for (int i = 0; i < currentPath.length - 1; i++) {
+        canvas.drawLine(currentPath[i], currentPath[i + 1], paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(DrawingPainter oldDelegate) {
+    return true;
   }
 }
