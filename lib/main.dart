@@ -212,6 +212,7 @@ class _MiddleViewState extends State<_MiddleView> {
   double eraserRadius = 15.0;
 
 
+  int foundPathIndex = -1; 
   List<List<Offset>> paths = [];
   List<Offset> currentPath = [];
   List<Offset> selectedPoints = []; //track selected lines within the lasso area
@@ -300,8 +301,8 @@ class _MiddleViewState extends State<_MiddleView> {
 
                     if (isMovingPoints && selectedPoints.isNotEmpty){ //
                         Offset delta = details.localPosition - initialDragOffset;
-                      for (int i = 0; i < selectedPoints.length; i++) {
-                        selectedPoints[i] = selectedPoints[i] + delta;
+                      for (int i = 0; i < paths[foundPathIndex].length; i++) {
+                        paths[foundPathIndex][i] = paths[foundPathIndex][i] + delta;
                       }
                       initialDragOffset = details.localPosition; // Update the drag point
                     }else{
@@ -384,40 +385,52 @@ class _MiddleViewState extends State<_MiddleView> {
 
   void selectPointsInsideLasso() {
 
+    //reset 
+    foundPathIndex = -1;
     //flag that indicates either entire path in List<Offset> in paths[i] belong to selected lasso area
     bool isApointNotBelong = true;
     selectedPoints.clear();
-    int foundPathIndex = -1; 
+    
     // Create a Path from lasso points
     final createdPath = ui.Path()..addPolygon(lassoPath, true);
 
     for (int i = 0; i < paths.length; i++) {
 
+      int countPointInLassoErea = 0;
       List<Offset> pathList = paths[i];
-
+      
       // Check if all points in the current pathList are inside the lasso path
       for (var point in pathList) {
         if (!createdPath.contains(point)) {
-          isApointNotBelong = false;
-          break; // If a point is outside, no need to check further in this pathList
+          //print('isApointNotBelong $isApointNotBelong : $i');
+          //isApointNotBelong = false;
+          continue; // If a point is outside, no need to check further in this pathList, go to next path
         }
+        //start count the number of point exist in paths[i] that belongs to lasso area
+        else{
+          countPointInLassoErea++;
+        }
+
       }
-
-      print('isApointNotBelong $isApointNotBelong');
+      //handle the case where no path was found
       // If all points belong to the lasso, mark the pathList and store the index
-      if (isApointNotBelong) {
-        selectedPoints = List.from(pathList); // Copy the pathList to selectedPoints
-        foundPathIndex = i; // Store the index of the found path
+      //print('countPointInLassoErea $i : $countPointInLassoErea, ${pathList.length}');
 
+      if (countPointInLassoErea == pathList.length) {
+        selectedPoints = List.from(pathList); // Copy the pathList to selectedPoints
+        foundPathIndex = i; // Store the indexof the found path
+
+        if (foundPathIndex == -1) {
+          print("No path fully inside the lasso.");
+          //if no path was found then we need to remove lasso's path 
+        } else {
+          print("Path found at index: $foundPathIndex"); // of course will not get printed 
+        }
         break; // Stop after finding the first matching path
       }
 
-      //handle the case where no path was found
-      if (foundPathIndex == -1) {
-        print("No path fully inside the lasso.");
-      } else {
-        print("Path found at index: $foundPathIndex");
-      }
+      
+
     }
 
   }
