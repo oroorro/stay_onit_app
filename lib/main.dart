@@ -213,6 +213,7 @@ class _MiddleViewState extends State<_MiddleView> {
 
 
   int foundPathIndex = -1; 
+
   List<List<Offset>> paths = [];
   List<Offset> currentPath = [];
   List<Offset> selectedPoints = []; //track selected lines within the lasso area
@@ -254,7 +255,7 @@ class _MiddleViewState extends State<_MiddleView> {
                 //     print(point); // Print each point individually
                 //   }// Print points to console
                 return CustomPaint(
-                  painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath),  // Pass the points to the painter
+                  painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath, foundPathIndex),  // Pass the points to the painter
                   size: const Size(1000, 1000),
                 );
               })(), 
@@ -336,6 +337,7 @@ class _MiddleViewState extends State<_MiddleView> {
                   if (isMovingPoints) {
                   // Stop moving points
                     isMovingPoints = false;
+                    selectedPoints.clear();
                   }else{
                     selectPointsInsideLasso();
                     lassoPath = []; // Clear lasso after selection
@@ -354,7 +356,7 @@ class _MiddleViewState extends State<_MiddleView> {
                 child: Stack(
                   children: [
                     CustomPaint(
-                      painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath),
+                      painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath, foundPathIndex),
                       size: const Size(1000, 1000),
                     ),
                     // CustomPaint(  //old version of drawing lines 
@@ -581,19 +583,35 @@ class _CanvasPainter extends CustomPainter {
 
 
 //new line drawing Widget 
+//for passed indices of selected path, chang
 class DrawingPainter extends CustomPainter {
   final List<List<Offset>> paths;
   final List<Offset> currentPath;
   final List<Offset> selectedPoints;
   final List<Offset> lassoPath;
+  final int foundPathIndex;
 
-  DrawingPainter(this.paths, this.currentPath, this.selectedPoints, this.lassoPath);
+  DrawingPainter(this.paths, this.currentPath, this.selectedPoints, this.lassoPath, this.foundPathIndex);
 
   @override
   void paint(Canvas canvas, Size size) {
     // Draw previous paths
-    for (var path in paths) {
+    for (int pathIndex = 0; pathIndex < paths.length; pathIndex++) {
+      List<Offset> path = paths[pathIndex];
       if (path.isNotEmpty) {
+
+        if (pathIndex == foundPathIndex) {
+          final borderPaint = Paint()
+            ..color = Colors.orangeAccent // Choose a border color for highlighting
+            ..strokeCap = StrokeCap.round
+            ..strokeWidth = 9.0 // Width slightly larger than the main path
+            ..style = PaintingStyle.stroke;
+
+          for (int i = 0; i < path.length - 1; i++) {
+            canvas.drawLine(path[i], path[i + 1], borderPaint); // Draw border line
+          }
+        }
+
         final paint = Paint()
           ..color = Colors.black
           ..strokeCap = StrokeCap.round
@@ -601,7 +619,7 @@ class DrawingPainter extends CustomPainter {
         for (int i = 0; i < path.length - 1; i++) {
           canvas.drawLine(path[i], path[i + 1], paint);
         }
-      }
+      } 
     }
 
     // Draw the current path being drawn
@@ -616,13 +634,13 @@ class DrawingPainter extends CustomPainter {
     }
 
     // Draw selected points
-    final selectedPaint = Paint()
-      ..color = Colors.red
-      ..style = PaintingStyle.fill;
+    // final selectedPaint = Paint()
+    //   ..color = Colors.red
+    //   ..style = PaintingStyle.fill;
 
-    for (var point in selectedPoints) {
-      canvas.drawCircle(point, 5.0, selectedPaint);
-    }
+    // for (var point in selectedPoints) {
+    //   canvas.drawCircle(point, 5.0, selectedPaint);
+    // }
 
     // Draw lasso path
     if (lassoPath.isNotEmpty) {
