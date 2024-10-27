@@ -213,6 +213,7 @@ class _MiddleViewState extends State<_MiddleView> {
 
 
   int foundPathIndex = -1; 
+  List<int> foundPathIndices = [];
 
   List<List<Offset>> paths = [];
   List<Offset> currentPath = [];
@@ -255,7 +256,7 @@ class _MiddleViewState extends State<_MiddleView> {
                 //     print(point); // Print each point individually
                 //   }// Print points to console
                 return CustomPaint(
-                  painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath, foundPathIndex),  // Pass the points to the painter
+                  painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath, foundPathIndex, foundPathIndices),  // Pass the points to the painter
                   size: const Size(1000, 1000),
                 );
               })(), 
@@ -302,9 +303,19 @@ class _MiddleViewState extends State<_MiddleView> {
 
                     if (isMovingPoints && selectedPoints.isNotEmpty){ //
                         Offset delta = details.localPosition - initialDragOffset;
-                      for (int i = 0; i < paths[foundPathIndex].length; i++) {
-                        paths[foundPathIndex][i] = paths[foundPathIndex][i] + delta;
+                      // for (int i = 0; i < paths[foundPathIndex].length; i++) {
+                      //   paths[foundPathIndex][i] = paths[foundPathIndex][i] + delta;
+                      // }
+                      //for (var foundIndex = 0; foundIndex < foundPathIndices.length; foundIndex++) {
+
+                      for (var foundIndex in foundPathIndices) {
+                        for (int i = 0; i < paths[foundIndex].length; i++) {
+                          paths[foundIndex][i] = paths[foundIndex][i] + delta;
+                        }
                       }
+                        
+                      //}
+
                       initialDragOffset = details.localPosition; // Update the drag point
                     }else{
                       RenderBox renderBox = context.findRenderObject() as RenderBox;
@@ -356,7 +367,7 @@ class _MiddleViewState extends State<_MiddleView> {
                 child: Stack(
                   children: [
                     CustomPaint(
-                      painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath, foundPathIndex),
+                      painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath, foundPathIndex, foundPathIndices),
                       size: const Size(1000, 1000),
                     ),
                     // CustomPaint(  //old version of drawing lines 
@@ -389,6 +400,7 @@ class _MiddleViewState extends State<_MiddleView> {
 
     //reset 
     foundPathIndex = -1;
+    foundPathIndices = [];
     //flag that indicates either entire path in List<Offset> in paths[i] belong to selected lasso area
     bool isApointNotBelong = true;
     selectedPoints.clear();
@@ -421,14 +433,14 @@ class _MiddleViewState extends State<_MiddleView> {
       if (countPointInLassoErea == pathList.length) {
         selectedPoints = List.from(pathList); // Copy the pathList to selectedPoints
         foundPathIndex = i; // Store the indexof the found path
-
+        foundPathIndices.add(i);
         if (foundPathIndex == -1) {
           print("No path fully inside the lasso.");
           //if no path was found then we need to remove lasso's path 
         } else {
           print("Path found at index: $foundPathIndex"); // of course will not get printed 
         }
-        break; // Stop after finding the first matching path
+        //break; // Stop after finding the first matching path
       }
 
       
@@ -590,8 +602,9 @@ class DrawingPainter extends CustomPainter {
   final List<Offset> selectedPoints;
   final List<Offset> lassoPath;
   final int foundPathIndex;
+  final List<int> foundPathIndices;
 
-  DrawingPainter(this.paths, this.currentPath, this.selectedPoints, this.lassoPath, this.foundPathIndex);
+  DrawingPainter(this.paths, this.currentPath, this.selectedPoints, this.lassoPath, this.foundPathIndex, this.foundPathIndices);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -600,17 +613,20 @@ class DrawingPainter extends CustomPainter {
       List<Offset> path = paths[pathIndex];
       if (path.isNotEmpty) {
 
-        if (pathIndex == foundPathIndex) {
-          final borderPaint = Paint()
-            ..color = Colors.orangeAccent // Choose a border color for highlighting
-            ..strokeCap = StrokeCap.round
-            ..strokeWidth = 9.0 // Width slightly larger than the main path
-            ..style = PaintingStyle.stroke;
+        for(int i = 0; i < foundPathIndices.length; i++){
+          if (pathIndex == foundPathIndices[i]) {
+            final borderPaint = Paint()
+              ..color = Colors.orangeAccent // Choose a border color for highlighting
+              ..strokeCap = StrokeCap.round
+              ..strokeWidth = 9.0 // Width slightly larger than the main path
+              ..style = PaintingStyle.stroke;
 
-          for (int i = 0; i < path.length - 1; i++) {
-            canvas.drawLine(path[i], path[i + 1], borderPaint); // Draw border line
+            for (int i = 0; i < path.length - 1; i++) {
+              canvas.drawLine(path[i], path[i + 1], borderPaint); // Draw border line
+            }
           }
         }
+        
 
         final paint = Paint()
           ..color = Colors.black
