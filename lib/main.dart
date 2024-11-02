@@ -147,7 +147,9 @@ class _TopNav extends StatelessWidget {
             ),
           _styledButton(Icons.highlight_alt, null, 'Lasso',
           (){
-            print("lasso started");
+            //if app state was already lasso, make app state to none 
+            //final AppState lassoState = context.watch<StateManagerModel>().currentState == AppState.lassoing ? AppState.none: AppState.lassoing;
+            //print("lasso started $lassoState");
             context.read<StateManagerModel>().updateCurrentState(AppState.lassoing);
           }),
           _styledButton(Icons.open_in_full, null, 'Resize'),
@@ -223,6 +225,8 @@ class _MiddleViewState extends State<_MiddleView> {
   bool isMovingPoints = false; // Track if points are being moved
   Offset initialDragOffset = Offset.zero; // Track the initial drag start point
 
+  Offset? lastTapLocation; // Store last tap location for click detection
+
   @override
   Widget build(BuildContext context) {
 
@@ -257,6 +261,9 @@ class _MiddleViewState extends State<_MiddleView> {
               })(), 
             )
           : GestureDetector( // Drawing mode is enabled 
+                onTapUp: (details) {
+                  handleTap(details.localPosition); // Check if tap clears selection
+              },
               onPanStart: (details) {
                 setState(() {
                   if(currentState == AppState.drawing){
@@ -341,6 +348,23 @@ class _MiddleViewState extends State<_MiddleView> {
             ),
     );
   }
+
+// Method to handle tap location and clear selection if outside
+  void handleTap(Offset tapPosition) {
+    // Calculate if tap is close to any selected points
+    bool tapIsNearSelected = selectedPoints.any((point) {
+      return (point - tapPosition).distance < 15; // Adjust the distance threshold as needed
+    });
+
+    print('tapIsNearSelected $tapIsNearSelected');
+    if (!tapIsNearSelected) {
+      setState(() {
+        selectedPoints.clear();
+        foundPathIndices.clear();
+      });
+    }
+  }
+
 
   void selectPointsInsideLasso() {
 
