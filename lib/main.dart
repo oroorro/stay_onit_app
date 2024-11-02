@@ -4,6 +4,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:cupertino_icons/cupertino_icons.dart';
 import 'dart:ui' as ui;
+import 'styled_button.dart';
+
 
 enum AppState {
   drawing,
@@ -56,9 +58,7 @@ class MyApp extends StatelessWidget {
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
-
   final String title;
-
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -90,11 +90,11 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: Column(
+      body: const Column(
         children: [
-          _TopNav(setDrawingMode: setDrawingMode, setZoomingMode: setZoomingMode,),  // Pass callback to _TopNav
+          _TopNav(),  // Pass callback to _TopNav
           Expanded(
-            child: _MiddleView(isDrawingMode: isDrawingMode, isZoomingMode: isZoomingMode),  // Pass state to _MiddleView
+            child: _MiddleView(),  // Pass state to _MiddleView
           ),
         ],
       ),
@@ -106,10 +106,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
 
 class _TopNav extends StatelessWidget {
-  final Function(bool) setDrawingMode;
-  final Function(bool) setZoomingMode;
+  // final Function(bool) setDrawingMode;
+  // final Function(bool) setZoomingMode;
 
-  const _TopNav({required this.setDrawingMode, required this.setZoomingMode});
+  //const _TopNav({required this.setDrawingMode, required this.setZoomingMode});
+  const _TopNav();
 
   @override
   Widget build(BuildContext context) {
@@ -119,28 +120,21 @@ class _TopNav extends StatelessWidget {
       child: Row(
         //mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _styledButton(Icons.home,null, 'Home'),
-          _styledButton(Icons.assignment, null, 'Markdown'),
-          _styledButton(Icons.zoom_in, null, 'Zoom', 
+          StyledButton(Icons.home,null, 'Home'),
+          StyledButton(Icons.assignment, null, 'Markdown'),
+          StyledButton(Icons.zoom_in, null, 'Zoom', 
             (){
-              //setZoomingMode(true);
-              //setDrawingMode(false);
-              //print('widget.isZoomingMode $isZoomingMode');
               context.read<StateManagerModel>().updateCurrentState(AppState.zooming);
-              print('Zoom Mode: true');
             }
           ),
-          _styledButton(Icons.brush, null, 'Paint', 
+          StyledButton(Icons.brush, null, 'Paint', 
             (){
-              //setZoomingMode(false);
-              //setDrawingMode(true);
-              print('Zoom Mode: false, Drawing Mode: true');
               context.read<StateManagerModel>().updateCurrentState(AppState.drawing);
             }
           ),
-          _styledButton(Icons.add, null, 'New Block'),
-          _styledButton(Icons.publish, null, 'Import'),
-          _styledButton(
+          StyledButton(Icons.add, null, 'New Block'),
+          StyledButton(Icons.publish, null, 'Import'),
+          StyledButton(
               // 'assets/images/eraser-icon.svg',  // SVG asset path
               Icons.check_box_outline_blank,
               null,
@@ -149,68 +143,28 @@ class _TopNav extends StatelessWidget {
                 context.read<StateManagerModel>().updateCurrentState(AppState.erasing);
               }
             ),
-          _styledButton(Icons.highlight_alt, null, 'Lasso',
+          StyledButton(Icons.highlight_alt, null, 'Lasso',
           (){
             //if app state was already lasso, make app state to none 
             //final AppState lassoState = context.watch<StateManagerModel>().currentState == AppState.lassoing ? AppState.none: AppState.lassoing;
             
             final AppState currentState = Provider.of<StateManagerModel>(context, listen: false).currentState;
             final AppState lassoState = currentState == AppState.lassoing ? AppState.none : AppState.lassoing;
-            print("lasso started $lassoState");
             //Provider.of<StateManagerModel>(context, listen: false).updateCurrentState(lassoState);
             context.read<StateManagerModel>().updateCurrentState(lassoState);
           }),
-          _styledButton(Icons.open_in_full, null, 'Resize'),
+          StyledButton(Icons.open_in_full, null, 'Resize'),
         ],
-      ),
-    );
-  }
-
-  // Method to style each button
-  Widget _styledButton(IconData? icon, String? svgAssetPath, String label, [void Function()? delegatedOnPressed]) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(0, 0, 7, 0),  // Margin outside the button
-      child: SizedBox(
-        width: 35,  // Set button width
-        height: 38,  // 
-        child: ElevatedButton(
-          onPressed: delegatedOnPressed ?? (){
-
-          },
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.all(1.0),  // Padding inside the button
-            backgroundColor: Colors.white,  // Button background color
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12.0),  // Rounded corners
-            ),
-            elevation: 4,  // Add shadow for depth
-          ),
-          child: Column( children: [
-            // Conditionally render either an Icon or SvgPicture based on the parameters
-            if (icon != null) ...[ // Display Icon if IconData is passed
-              Icon(icon, size: 36.0),  
-            ] 
-            else if (svgAssetPath != null) ...[  // Display SvgPicture if an SVG asset path is passed
-              SvgPicture.asset(
-                svgAssetPath,
-                width: 30,
-                height: 30,
-              ), 
-              ],
-            ]
-            )
-        ),
       ),
     );
   }
 }
 
 class _MiddleView extends StatefulWidget {
-  final bool isDrawingMode;  // Flag to indicate whether it's drawing mode
-  final bool isZoomingMode; 
-
-
-  const _MiddleView({required this.isDrawingMode, required this.isZoomingMode});
+  //final bool isDrawingMode;  // Flag to indicate whether it's drawing mode
+  //final bool isZoomingMode; 
+  //const _MiddleView({required this.isDrawingMode, required this.isZoomingMode});
+  const _MiddleView();
 
   @override
   State<_MiddleView> createState() => _MiddleViewState();
@@ -250,7 +204,6 @@ class _MiddleViewState extends State<_MiddleView> {
 
       },
        onInteractionUpdate: (details) {
-        print('widget.isZoomingMode $widget.isZoomingMode');
         if (currentState == AppState.zooming) {
           // Use focalPointDelta to track panning or zoom changes
           setState(() {
@@ -317,29 +270,25 @@ class _MiddleViewState extends State<_MiddleView> {
                     }else{
                       RenderBox renderBox = context.findRenderObject() as RenderBox;
                       Offset localPosition = renderBox.globalToLocal(details.globalPosition);
-                      //lassoPoints.add(localPosition);  // Store points for the lasso trail
                       lassoPath.add(localPosition);
                     }
                   });
                 }
               },
               onPanEnd: (details) {
-                if (currentState == AppState.lassoing ) {
-                  if (isMovingPoints) {
-                  // Stop moving points
-                    isMovingPoints = false;
-                    selectedPoints.clear();
+                if (currentState == AppState.lassoing) {
+                  if (isMovingPoints) { // interaction ended when selected path has been dragging made from lasso feature
+                    isMovingPoints = false; // then unselect the selected path from lasso
+                    selectedPoints.clear(); 
                   }else{
-                    //print('lassoPath $lassoPath');
                     selectPointsInsideLasso();
                     setState(() {
                       lassoPath = []; // Clear lasso after selection
                     });
                   }
                 }
-                else if (widget.isDrawingMode) {
+                else if (currentState == AppState.drawing) {
                   setState(() {
-                    //points.add(const Offset(-1, -1));  // Add a sentinel value to indicate a stroke end
                     paths.add(currentPath); // uc-7
                     currentPath = []; // Clear current path for new drawing uc-7
                   });
@@ -362,12 +311,10 @@ class _MiddleViewState extends State<_MiddleView> {
 
 // Method to handle tap location and clear selection if outside
   void handleTap(Offset tapPosition) {
-    // Calculate if tap is close to any selected points
-    bool tapIsNearSelected = selectedPoints.any((point) {
+    bool tapIsNearSelected = selectedPoints.any((point) {     // Calculate if tap is close to any selected points
       return (point - tapPosition).distance < 15; // Adjust the distance threshold as needed
     });
 
-    print('tapIsNearSelected $tapIsNearSelected');
     if (!tapIsNearSelected) {
       setState(() {
         selectedPoints.clear();
@@ -417,7 +364,6 @@ class _MiddleViewState extends State<_MiddleView> {
         } else {
           print("Path found at index: $foundPathIndex"); // of course will not get printed 
         }
-        //break; // Stop after finding the first matching path
       }
     }
   }
