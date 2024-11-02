@@ -123,23 +123,27 @@ class _TopNav extends StatelessWidget {
           _styledButton(Icons.assignment, null, 'Markdown'),
           _styledButton(Icons.zoom_in, null, 'Zoom', 
             (){
-              setZoomingMode(true);
-              setDrawingMode(false);
-              print('Zoom Mode: true, Drawing Mode: false');
+              //setZoomingMode(true);
+              //setDrawingMode(false);
+              //print('widget.isZoomingMode $isZoomingMode');
+              context.read<StateManagerModel>().updateCurrentState(AppState.zooming);
+              print('Zoom Mode: true');
             }
           ),
           _styledButton(Icons.brush, null, 'Paint', 
             (){
-              setZoomingMode(false);
-              setDrawingMode(true);
+              //setZoomingMode(false);
+              //setDrawingMode(true);
               print('Zoom Mode: false, Drawing Mode: true');
               context.read<StateManagerModel>().updateCurrentState(AppState.drawing);
             }
           ),
           _styledButton(Icons.add, null, 'New Block'),
           _styledButton(Icons.publish, null, 'Import'),
-          _styledButton(null,
-              'assets/images/eraser-icon.svg',  // SVG asset path
+          _styledButton(
+              // 'assets/images/eraser-icon.svg',  // SVG asset path
+              Icons.check_box_outline_blank,
+              null,
               'Logo',                           // Label
               (){
                 context.read<StateManagerModel>().updateCurrentState(AppState.erasing);
@@ -149,8 +153,12 @@ class _TopNav extends StatelessWidget {
           (){
             //if app state was already lasso, make app state to none 
             //final AppState lassoState = context.watch<StateManagerModel>().currentState == AppState.lassoing ? AppState.none: AppState.lassoing;
-            //print("lasso started $lassoState");
-            context.read<StateManagerModel>().updateCurrentState(AppState.lassoing);
+            
+            final AppState currentState = Provider.of<StateManagerModel>(context, listen: false).currentState;
+            final AppState lassoState = currentState == AppState.lassoing ? AppState.none : AppState.lassoing;
+            print("lasso started $lassoState");
+            //Provider.of<StateManagerModel>(context, listen: false).updateCurrentState(lassoState);
+            context.read<StateManagerModel>().updateCurrentState(lassoState);
           }),
           _styledButton(Icons.open_in_full, null, 'Resize'),
         ],
@@ -163,8 +171,8 @@ class _TopNav extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.fromLTRB(0, 0, 7, 0),  // Margin outside the button
       child: SizedBox(
-        width: 40,  // Set button width
-        height: 40,  // 
+        width: 35,  // Set button width
+        height: 38,  // 
         child: ElevatedButton(
           onPressed: delegatedOnPressed ?? (){
 
@@ -200,6 +208,7 @@ class _TopNav extends StatelessWidget {
 class _MiddleView extends StatefulWidget {
   final bool isDrawingMode;  // Flag to indicate whether it's drawing mode
   final bool isZoomingMode; 
+
 
   const _MiddleView({required this.isDrawingMode, required this.isZoomingMode});
 
@@ -238,9 +247,11 @@ class _MiddleViewState extends State<_MiddleView> {
       minScale: 0.2,  // Minimum zoom scale
       maxScale: 4.0,  // Maximum zoom scale
       onInteractionStart: (details) {
+
       },
        onInteractionUpdate: (details) {
-        if (widget.isZoomingMode) {
+        print('widget.isZoomingMode $widget.isZoomingMode');
+        if (currentState == AppState.zooming) {
           // Use focalPointDelta to track panning or zoom changes
           setState(() {
             totalPanOffset += details.focalPointDelta;
