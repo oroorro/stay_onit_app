@@ -249,12 +249,7 @@ class _MiddleViewState extends State<_MiddleView> {
       child: currentState == AppState.zooming //widget.isZoomingMode  // Disable gesture detection when zooming
           ? Container( //when zooming Mode is enabled 
               color: const Color.fromARGB(255, 223, 188, 210),
-              //padding: const EdgeInsets.all(8),
               child: (() {
-                // print('Current points:');
-                //   for (var point in points) {
-                //     print(point); // Print each point individually
-                //   }// Print points to console
                 return CustomPaint(
                   painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath, foundPathIndex, foundPathIndices),  // Pass the points to the painter
                   size: const Size(1000, 1000),
@@ -267,30 +262,23 @@ class _MiddleViewState extends State<_MiddleView> {
                   if(currentState == AppState.drawing){
                     currentPath = [details.localPosition];
                   }else if(currentState == AppState.lassoing){
-                    if(selectedPoints.isNotEmpty){
-                      // Start moving points if any are selected
+                    if(selectedPoints.isNotEmpty){ //when selected path exist, Start moving points if any are selected
                       isMovingPoints = true;
                       initialDragOffset = details.localPosition;
-                    }else{
+                    }else{ // save currently drawn path as lasso path 
                       lassoPath = [details.localPosition];
                     } 
                   }
                 });
               },
               onPanUpdate: (details) {
-                //if (widget.isDrawingMode) {
                   if(currentState == AppState.drawing){
                   setState(() {
                     RenderBox renderBox = context.findRenderObject() as RenderBox;
-
                     Matrix4 matrix = _transformationController.value;
-                    
                     Offset localPosition = renderBox.globalToLocal(details.globalPosition);
                     localPosition = _applyMatrixToPoint(localPosition, matrix);
-                    //points.add(localPosition);  // Add the current drag position to the list
                     currentPath.add(details.localPosition);  //uc-7
-                   
-                    
                   });
                 }else if(currentState == AppState.erasing){ // Perform erasing
                   //  setState(() {
@@ -300,22 +288,13 @@ class _MiddleViewState extends State<_MiddleView> {
                 else if(currentState == AppState.lassoing){ //Perform Lasso
                   //draw points when dragging on the canvas 
                   setState(() {
-
-                    if (isMovingPoints && selectedPoints.isNotEmpty){ //
-                        Offset delta = details.localPosition - initialDragOffset;
-                      // for (int i = 0; i < paths[foundPathIndex].length; i++) {
-                      //   paths[foundPathIndex][i] = paths[foundPathIndex][i] + delta;
-                      // }
-                      //for (var foundIndex = 0; foundIndex < foundPathIndices.length; foundIndex++) {
-
+                    if (isMovingPoints && selectedPoints.isNotEmpty){ 
+                      Offset delta = details.localPosition - initialDragOffset;
                       for (var foundIndex in foundPathIndices) {
                         for (int i = 0; i < paths[foundIndex].length; i++) {
                           paths[foundIndex][i] = paths[foundIndex][i] + delta;
                         }
                       }
-                        
-                      //}
-
                       initialDragOffset = details.localPosition; // Update the drag point
                     }else{
                       RenderBox renderBox = context.findRenderObject() as RenderBox;
@@ -328,30 +307,16 @@ class _MiddleViewState extends State<_MiddleView> {
               },
               onPanEnd: (details) {
                 if (currentState == AppState.lassoing ) {
-
-                  // Check if lasso is closed or delete it if not
-                  // if (!isLassoClosed()) {
-                  //   setState(() {
-                  //     lassoPoints.clear();  // Clear the lasso if not closed
-                  //   });
-                  //   print('Lasso not closed, clearing points');
-                  // } else {
-                  //   // Optionally handle any other logic when the lasso is properly closed
-                  //   setState(() {
-                  //     // Use the lasso if needed, e.g., selecting points inside the lasso
-                  //     selectedPoints = _getSelectedLines(createLassoPath());
-                  //   });
-                  //   print('Lasso closed, selecting points');
-                  // }
-                   // Finalize the lasso
-                  print('isMovingPoints $isMovingPoints');
                   if (isMovingPoints) {
                   // Stop moving points
                     isMovingPoints = false;
                     selectedPoints.clear();
                   }else{
+                    //print('lassoPath $lassoPath');
                     selectPointsInsideLasso();
-                    lassoPath = []; // Clear lasso after selection
+                    setState(() {
+                      lassoPath = []; // Clear lasso after selection
+                    });
                   }
                 }
                 else if (widget.isDrawingMode) {
@@ -370,31 +335,12 @@ class _MiddleViewState extends State<_MiddleView> {
                       painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath, foundPathIndex, foundPathIndices),
                       size: const Size(1000, 1000),
                     ),
-                    // CustomPaint(  //old version of drawing lines 
-                    //   painter: _CanvasPainter(points: points),
-                    //   size: const Size(1000, 1000),
-                    // ),
-                    // CustomPaint(
-                    //   painter: _LassoCreater(
-                    //     selectedPoints: selectedPoints, 
-                    //     lassoPath: createLassoPath(),
-                    //   ),
-                    //   size: const Size(1000, 1000),
-                    // ),
-                    
                   ],
                 ) 
               )
             ),
     );
   }
-
-  // bool isLassoClosed() {
-  //   if (lassoPoints.length > 2) {
-  //     return (lassoPoints.first - lassoPoints.last).distance < 10.0;  // Threshold to close lasso
-  //   }
-  //   return false;
-  // }
 
   void selectPointsInsideLasso() {
 
@@ -416,15 +362,11 @@ class _MiddleViewState extends State<_MiddleView> {
       // Check if all points in the current pathList are inside the lasso path
       for (var point in pathList) {
         if (!createdPath.contains(point)) {
-          //print('isApointNotBelong $isApointNotBelong : $i');
-          //isApointNotBelong = false;
           continue; // If a point is outside, no need to check further in this pathList, go to next path
         }
-        //start count the number of point exist in paths[i] that belongs to lasso area
-        else{
+        else{ //start count the number of point exist in paths[i] that belongs to lasso area
           countPointInLassoErea++;
         }
-
       }
       //handle the case where no path was found
       // If all points belong to the lasso, mark the pathList and store the index
@@ -442,41 +384,9 @@ class _MiddleViewState extends State<_MiddleView> {
         }
         //break; // Stop after finding the first matching path
       }
-
-      
-
     }
-
   }
 
-
-  // Path createLassoPath() {
-  //   Path path = Path();
-  //   if (lassoPoints.isNotEmpty) {
-  //     path.moveTo(lassoPoints.first.dx, lassoPoints.first.dy);
-  //     for (var point in lassoPoints) {
-  //       path.lineTo(point.dx, point.dy);
-  //     }
-  //     if (isLassoClosed()) {
-  //       path.close();  // Close the lasso if necessary
-  //     }
-  //   }
-  //   return path;
-  // }
-
-  // Check which lines are inside the lasso area (both start and end of the line must be inside)
-  // List<Offset> _getSelectedLines(Path lassoPath) {
-  //   List<Offset> selected = [];
-  //   for (int i = 0; i < points.length - 1; i++) {
-  //     if (points[i] != const Offset(-1, -1) && points[i + 1] != const Offset(-1, -1)) {
-  //       if (lassoPath.contains(points[i]) && lassoPath.contains(points[i + 1])) {
-  //         selected.add(points[i]);     // Add both start and end points to the selected list
-  //         selected.add(points[i + 1]); // Add the end point
-  //       }
-  //     }
-  //   }
-  //   return selected;  // Return selected points within the lasso area
-  // }
   Offset _applyMatrixToPoint(Offset point, Matrix4 matrix) {
     // Apply the inverse of the transformation matrix
     Matrix4 inverseMatrix = Matrix4.inverted(matrix);
