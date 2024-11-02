@@ -6,30 +6,10 @@ import 'package:cupertino_icons/cupertino_icons.dart';
 import 'dart:ui' as ui;
 import 'styled_button.dart';
 
+import 'models/app_state.dart';
+import 'models/state_manager_model.dart';
 
-enum AppState {
-  drawing,
-  lassoing,
-  erasing,
-  resizing,
-  none,
-  zooming,
-}
-
-// Model to hold and manage states
-class StateManagerModel extends ChangeNotifier {
-
-  AppState _currentState = AppState.none;
-
-  AppState get currentState => _currentState;
-
-  void updateCurrentState(AppState newState) {
-    print("newState is :${newState}");
-    _currentState = newState;
-    notifyListeners();
-  }
-}
-
+import 'top_nav.dart';
 
 void main() {
   runApp(
@@ -67,23 +47,6 @@ class MyHomePage extends StatefulWidget {
 
 
 class _MyHomePageState extends State<MyHomePage> {
-  bool isDrawingMode = false;
-  bool isZoomingMode = false;
-
-
-  void setDrawingMode(bool enabled) {
-    setState(() {
-      isDrawingMode = enabled;
-    });
-  }
-
-  void setZoomingMode(bool enabled) {
-    setState(() {
-      isZoomingMode = enabled;
-      print("zoom Mode enabled");
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -92,7 +55,7 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: const Column(
         children: [
-          _TopNav(),  // Pass callback to _TopNav
+          TopNav(),  // Pass callback to _TopNav
           Expanded(
             child: _MiddleView(),  // Pass state to _MiddleView
           ),
@@ -103,67 +66,8 @@ class _MyHomePageState extends State<MyHomePage> {
 }
 
 
-
-
-class _TopNav extends StatelessWidget {
-  // final Function(bool) setDrawingMode;
-  // final Function(bool) setZoomingMode;
-
-  //const _TopNav({required this.setDrawingMode, required this.setZoomingMode});
-  const _TopNav();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 5.0),
-      color: Colors.blueAccent,
-      child: Row(
-        //mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          StyledButton(Icons.home,null, 'Home'),
-          StyledButton(Icons.assignment, null, 'Markdown'),
-          StyledButton(Icons.zoom_in, null, 'Zoom', 
-            (){
-              context.read<StateManagerModel>().updateCurrentState(AppState.zooming);
-            }
-          ),
-          StyledButton(Icons.brush, null, 'Paint', 
-            (){
-              context.read<StateManagerModel>().updateCurrentState(AppState.drawing);
-            }
-          ),
-          StyledButton(Icons.add, null, 'New Block'),
-          StyledButton(Icons.publish, null, 'Import'),
-          StyledButton(
-              // 'assets/images/eraser-icon.svg',  // SVG asset path
-              Icons.check_box_outline_blank,
-              null,
-              'Logo',                           // Label
-              (){
-                context.read<StateManagerModel>().updateCurrentState(AppState.erasing);
-              }
-            ),
-          StyledButton(Icons.highlight_alt, null, 'Lasso',
-          (){
-            //if app state was already lasso, make app state to none 
-            //final AppState lassoState = context.watch<StateManagerModel>().currentState == AppState.lassoing ? AppState.none: AppState.lassoing;
-            
-            final AppState currentState = Provider.of<StateManagerModel>(context, listen: false).currentState;
-            final AppState lassoState = currentState == AppState.lassoing ? AppState.none : AppState.lassoing;
-            //Provider.of<StateManagerModel>(context, listen: false).updateCurrentState(lassoState);
-            context.read<StateManagerModel>().updateCurrentState(lassoState);
-          }),
-          StyledButton(Icons.open_in_full, null, 'Resize'),
-        ],
-      ),
-    );
-  }
-}
-
 class _MiddleView extends StatefulWidget {
-  //final bool isDrawingMode;  // Flag to indicate whether it's drawing mode
-  //final bool isZoomingMode; 
-  //const _MiddleView({required this.isDrawingMode, required this.isZoomingMode});
+
   const _MiddleView();
 
   @override
@@ -252,9 +156,14 @@ class _MiddleViewState extends State<_MiddleView> {
                     currentPath.add(details.localPosition);  //uc-7
                   });
                 }else if(currentState == AppState.erasing){ // Perform erasing
-                  //  setState(() {
-                  //   _erasePoint(details.globalPosition);  
-                  // });
+                   setState(() {
+                    RenderBox renderBox = context.findRenderObject() as RenderBox;
+                    Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+                    Matrix4 matrix = _transformationController.value;
+                    localPosition = _applyMatrixToPoint(localPosition, matrix);
+                    //_erasePoint(details.globalPosition);  
+                    _erasePoint(localPosition);  
+                  });
                 }
                 else if(currentState == AppState.lassoing){ //Perform Lasso
                   //draw points when dragging on the canvas 
@@ -269,7 +178,9 @@ class _MiddleViewState extends State<_MiddleView> {
                       initialDragOffset = details.localPosition; // Update the drag point
                     }else{
                       RenderBox renderBox = context.findRenderObject() as RenderBox;
+                      Matrix4 matrix = _transformationController.value;
                       Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+                      localPosition = _applyMatrixToPoint(localPosition, matrix);
                       lassoPath.add(localPosition);
                     }
                   });
@@ -330,7 +241,6 @@ class _MiddleViewState extends State<_MiddleView> {
     foundPathIndex = -1;
     foundPathIndices = [];
     //flag that indicates either entire path in List<Offset> in paths[i] belong to selected lasso area
-    bool isApointNotBelong = true;
     selectedPoints.clear();
     
     // Create a Path from lasso points
@@ -376,112 +286,44 @@ class _MiddleViewState extends State<_MiddleView> {
   }
 
   // Erase points that are near the eraser's position
-  // void _erasePoint(Offset globalPosition) {
-  //   RenderBox renderBox = context.findRenderObject() as RenderBox;
-  //   Offset localPosition = renderBox.globalToLocal(globalPosition);
+  void _erasePoint(Offset localPosition) {
+    setState(() {
 
-  //   // Track the indices of the points to remove
-  //   setState(() {
-  //     // Remove points near the eraser and insert a sentinel value (-1, -1) to break the line
-  //     for (int i = 0; i < points.length; i++) {
-  //       if ((points[i] - localPosition).distance < eraserRadius) {
-  //         points[i] = const Offset(-1, -1);  // Insert sentinel value to break the line
-  //       }
-  //     }
-  //   });
-  // }
+      for (int i = 0; i < paths.length; i++) {
+        List<Offset> path = paths[i];
+        bool splitOccurred = false;
 
-}
+        for (int j = 0; j < path.length; j++) {
+          // Check if the point is near the eraser
+          if ((path[j] - localPosition).distance < eraserRadius) {
+            // Split path into two segments around the erased point
+            List<Offset> firstSegment = path.sublist(0, j);
+            List<Offset> secondSegment = path.sublist(j + 1);
 
+            // Remove the original path and replace it with new segments
+            paths.removeAt(i);
+            if (firstSegment.isNotEmpty) paths.insert(i, firstSegment);
+            
+            if (secondSegment.isNotEmpty){
+              if(i == paths.length){
+                paths.add(secondSegment); //prevents error of using insert; it throws an error when inserting into bigger than length of List
+              }else{
+                paths.insert(i + 1, secondSegment);
+              }
+            } 
 
-
-class _LassoCreater extends CustomPainter{
-  final List<Offset> selectedPoints;
-  final Path lassoPath;
-
-  _LassoCreater({required this.selectedPoints, required this.lassoPath});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    Paint paint = Paint()
-      ..color = Colors.blue
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 5.0;
-
-    // Highlight selected lines
-    paint.color = Colors.red;  // Use a different color to highlight selected lines
-    for (int i = 0; i < selectedPoints.length - 1; i += 2) {
-      canvas.drawLine(selectedPoints[i], selectedPoints[i + 1], paint);
-    }
-
-    // Draw the bounding box for the selected points
-    if (selectedPoints.isNotEmpty) {
-      Rect boundingBox = getBoundingBox(selectedPoints);
-      paint.color = Colors.green;
-      paint.style = PaintingStyle.stroke;
-      canvas.drawRect(boundingBox, paint);
-    }
-
-    // Draw lasso path
-    if (lassoPath != null) {
-      paint.color = Colors.purple;
-      paint.style = PaintingStyle.stroke;
-      canvas.drawPath(lassoPath, paint);
-    }
-  }
-
-    // Calculate the bounding box for the selected points
-  Rect getBoundingBox(List<Offset> points) {
-    if (points.isEmpty) return Rect.zero;
-
-    // Find the minimum and maximum x and y coordinates
-    double minX = points.map((p) => p.dx).reduce((a, b) => a < b ? a : b);
-    double maxX = points.map((p) => p.dx).reduce((a, b) => a > b ? a : b);
-    double minY = points.map((p) => p.dy).reduce((a, b) => a < b ? a : b);
-    double maxY = points.map((p) => p.dy).reduce((a, b) => a > b ? a : b);
-
-    // Create a rectangle from the min and max values
-    return Rect.fromLTRB(minX, minY, maxX, maxY);
-  }
-
-
-
-  @override
-  bool shouldRepaint(_LassoCreater oldDelegate) {
-    return true;  // Always repaint when the points list updates
-  }
-
-}
-
-
-//previosly attempt on drawing lines  
-class _CanvasPainter extends CustomPainter {
-  final List<Offset> points;  // List of points to draw
-  
-  _CanvasPainter({required this.points});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    Paint paint = Paint()
-      ..color = Colors.blue
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 15.0;
-
-    //canvas.drawPoints(ui.PointMode.points, points, paint);
-    for (int i = 0; i < points.length - 1; i++) {
-      if (points[i] != const Offset(-1, -1) && points[i + 1] != const Offset(-1, -1)) {
-        // Draw a line between consecutive points, excluding sentinel (-1, -1)
-        canvas.drawLine(points[i], points[i + 1], paint);
-        
+            splitOccurred = true;
+            break;
+          }
+        }
+        if (splitOccurred) break; // Stop checking if a split occurred
       }
-    }
+    });
   }
 
-  @override
-  bool shouldRepaint(_CanvasPainter oldDelegate) {
-    return true;  // Always repaint when the points list updates
-  }
 }
+
+
 
 
 
