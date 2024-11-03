@@ -47,17 +47,26 @@ class MyHomePage extends StatefulWidget {
 
 
 class _MyHomePageState extends State<MyHomePage> {
+
+  Size boxSize = const Size(800, 750); // Initial size
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: const Column(
+      body: Column(
         children: [
           TopNav(),  // Pass callback to _TopNav
-          Expanded(
-            child: _MiddleView(),  // Pass state to _MiddleView
+          SizedBox(
+            width: boxSize.width,
+            height: boxSize.height,
+            child: _MiddleView(boxSize: boxSize, onResize: (newSize) {
+              setState(() {
+                boxSize = newSize; // Update box size dynamically
+              });
+            }),
           ),
         ],
       ),
@@ -68,8 +77,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
 class _MiddleView extends StatefulWidget {
 
-  const _MiddleView();
-
+  final Size boxSize;
+  final ValueChanged<Size> onResize; // Callback to update size
+  
+  const _MiddleView({required this.boxSize, required this.onResize});
+  
   @override
   State<_MiddleView> createState() => _MiddleViewState();
 }
@@ -160,45 +172,45 @@ class _MiddleViewState extends State<_MiddleView> {
                 });
               },
       onPanUpdate: (details) {
-                  if(currentState == AppState.drawing){
-                  setState(() {
-                    RenderBox renderBox = context.findRenderObject() as RenderBox;
-                    Matrix4 matrix = _transformationController.value;
-                    Offset localPosition = renderBox.globalToLocal(details.globalPosition);
-                    localPosition = _applyMatrixToPoint(localPosition, matrix);
-                    currentPath.add(details.localPosition);  //uc-7
-                  });
-                }else if(currentState == AppState.erasing){ // Perform erasing
-                   setState(() {
-                    RenderBox renderBox = context.findRenderObject() as RenderBox;
-                    Offset localPosition = renderBox.globalToLocal(details.globalPosition);
-                    Matrix4 matrix = _transformationController.value;
-                    localPosition = _applyMatrixToPoint(localPosition, matrix);
-                    //_erasePoint(details.globalPosition);  
-                    _erasePoint(localPosition);  
-                  });
+        if(currentState == AppState.drawing){
+          setState(() {
+            RenderBox renderBox = context.findRenderObject() as RenderBox;
+            Matrix4 matrix = _transformationController.value;
+            Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+            localPosition = _applyMatrixToPoint(localPosition, matrix);
+            currentPath.add(details.localPosition);  //uc-7
+          });
+        }else if(currentState == AppState.erasing){ // Perform erasing
+            setState(() {
+            RenderBox renderBox = context.findRenderObject() as RenderBox;
+            Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+            Matrix4 matrix = _transformationController.value;
+            localPosition = _applyMatrixToPoint(localPosition, matrix);
+            //_erasePoint(details.globalPosition);  
+            _erasePoint(localPosition);  
+          });
+        }
+        else if(currentState == AppState.lassoing){ //Perform Lasso
+          //draw points when dragging on the canvas 
+          setState(() {
+            if (isMovingPoints && selectedPoints.isNotEmpty){ 
+              Offset delta = details.localPosition - initialDragOffset;
+              for (var foundIndex in foundPathIndices) {
+                for (int i = 0; i < paths[foundIndex].length; i++) {
+                  paths[foundIndex][i] = paths[foundIndex][i] + delta;
                 }
-                else if(currentState == AppState.lassoing){ //Perform Lasso
-                  //draw points when dragging on the canvas 
-                  setState(() {
-                    if (isMovingPoints && selectedPoints.isNotEmpty){ 
-                      Offset delta = details.localPosition - initialDragOffset;
-                      for (var foundIndex in foundPathIndices) {
-                        for (int i = 0; i < paths[foundIndex].length; i++) {
-                          paths[foundIndex][i] = paths[foundIndex][i] + delta;
-                        }
-                      }
-                      initialDragOffset = details.localPosition; // Update the drag point
-                    }else{
-                      RenderBox renderBox = context.findRenderObject() as RenderBox;
-                      Matrix4 matrix = _transformationController.value;
-                      Offset localPosition = renderBox.globalToLocal(details.globalPosition);
-                      localPosition = _applyMatrixToPoint(localPosition, matrix);
-                      lassoPath.add(localPosition);
-                    }
-                  });
-                }
-              },
+              }
+              initialDragOffset = details.localPosition; // Update the drag point
+            }else{
+              RenderBox renderBox = context.findRenderObject() as RenderBox;
+              Matrix4 matrix = _transformationController.value;
+              Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+              localPosition = _applyMatrixToPoint(localPosition, matrix);
+              lassoPath.add(localPosition);
+            }
+          });
+        }
+      },
       onPanEnd: (details) {
         if (currentState == AppState.lassoing) {
           if (isMovingPoints) { // interaction ended when selected path has been dragging made from lasso feature
@@ -244,7 +256,7 @@ class _MiddleViewState extends State<_MiddleView> {
   }
 
 Widget _buildResizingView() {
-  print('_buildResizingView :resizeHappened $resizeHappened $boxSize');
+  //print('_buildResizingView :resizeHappened $resizeHappened $boxSize');
   return GestureDetector(
     child: Container(
       color: const Color.fromARGB(255, 223, 188, 210),
@@ -280,14 +292,13 @@ Widget _buildResizingView() {
   Widget _buildResizeHandle() {
     return GestureDetector(
       onPanUpdate: (details) {
-        setState(() {
-          boxSize = Size(
-            (boxSize.width + details.delta.dx).clamp(200, double.infinity),
-            (boxSize.height + details.delta.dy).clamp(200, double.infinity),
-          );
-          resizeHappened = true;
-        });
-        print('hit size of Box: $boxSize');
+        
+        final newSize = Size(
+          (widget.boxSize.width + details.delta.dx).clamp(200, double.infinity),
+          (widget.boxSize.height + details.delta.dy).clamp(200, double.infinity),
+        );
+        widget.onResize(newSize);
+        print('Updated boxSize in _buildResizeHandle: $newSize');
       },
       onPanEnd: (details) {
         setState(() {
