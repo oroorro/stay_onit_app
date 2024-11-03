@@ -48,7 +48,9 @@ class TopNav extends StatelessWidget {
             //Provider.of<StateManagerModel>(context, listen: false).updateCurrentState(lassoState);
             context.read<StateManagerModel>().updateCurrentState(lassoState);
           }),
-          StyledButton(Icons.open_in_full, null, 'Resize'),
+          StyledButton(Icons.open_in_full, null, 'Resize', (){
+            context.read<StateManagerModel>().updateCurrentState(AppState.resizingBlock);
+          }),
         ],
       ),
     );

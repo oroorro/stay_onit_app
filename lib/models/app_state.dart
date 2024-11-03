@@ -4,7 +4,7 @@ enum AppState {
   drawing,
   lassoing,
   erasing,
-  resizing,
+  resizingBlock,
   none,
   zooming,
 }

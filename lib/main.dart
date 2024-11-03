@@ -94,6 +94,8 @@ class _MiddleViewState extends State<_MiddleView> {
 
   Offset? lastTapLocation; // Store last tap location for click detection
 
+  Size boxSize = Size(1000, 1000); // Initial ColoredBox size
+
   @override
   Widget build(BuildContext context) {
 
@@ -118,21 +120,132 @@ class _MiddleViewState extends State<_MiddleView> {
       onInteractionEnd: (details) {
 
       },
-      child: currentState == AppState.zooming //widget.isZoomingMode  // Disable gesture detection when zooming
-          ? Container( //when zooming Mode is enabled 
-              color: const Color.fromARGB(255, 223, 188, 210),
-              child: (() {
-                return CustomPaint(
-                  painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath, foundPathIndex, foundPathIndices),  // Pass the points to the painter
-                  size: const Size(1000, 1000),
-                );
-              })(), 
-            )
-          : GestureDetector( // Drawing mode is enabled 
-                onTapUp: (details) {
+     child: _buildViewBasedOnState(currentState),
+
+      // child: currentState == AppState.zooming //widget.isZoomingMode  // Disable gesture detection when zooming
+      //     ? Container( //when zooming Mode is enabled 
+      //         color: const Color.fromARGB(255, 223, 188, 210),
+      //         child: (() {
+      //           return CustomPaint(
+      //             painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath, foundPathIndex, foundPathIndices),  // Pass the points to the painter
+      //             size: const Size(1000, 1000),
+      //           );
+      //         })(), 
+      //       )
+      //     : GestureDetector( // Drawing mode is enabled 
+      //           onTapUp: (details) {
+      //             handleTap(details.localPosition); // Check if tap clears selection
+      //         },
+      //         onPanStart: (details) {
+      //           setState(() {
+      //             if(currentState == AppState.drawing){
+      //               currentPath = [details.localPosition];
+      //             }else if(currentState == AppState.lassoing){
+      //               if(selectedPoints.isNotEmpty){ //when selected path exist, Start moving points if any are selected
+      //                 isMovingPoints = true;
+      //                 initialDragOffset = details.localPosition;
+      //               }else{ // save currently drawn path as lasso path 
+      //                 lassoPath = [details.localPosition];
+      //               } 
+      //             }
+      //           });
+      //         },
+      //         onPanUpdate: (details) {
+      //             if(currentState == AppState.drawing){
+      //             setState(() {
+      //               RenderBox renderBox = context.findRenderObject() as RenderBox;
+      //               Matrix4 matrix = _transformationController.value;
+      //               Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+      //               localPosition = _applyMatrixToPoint(localPosition, matrix);
+      //               currentPath.add(details.localPosition);  //uc-7
+      //             });
+      //           }else if(currentState == AppState.erasing){ // Perform erasing
+      //              setState(() {
+      //               RenderBox renderBox = context.findRenderObject() as RenderBox;
+      //               Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+      //               Matrix4 matrix = _transformationController.value;
+      //               localPosition = _applyMatrixToPoint(localPosition, matrix);
+      //               //_erasePoint(details.globalPosition);  
+      //               _erasePoint(localPosition);  
+      //             });
+      //           }
+      //           else if(currentState == AppState.lassoing){ //Perform Lasso
+      //             //draw points when dragging on the canvas 
+      //             setState(() {
+      //               if (isMovingPoints && selectedPoints.isNotEmpty){ 
+      //                 Offset delta = details.localPosition - initialDragOffset;
+      //                 for (var foundIndex in foundPathIndices) {
+      //                   for (int i = 0; i < paths[foundIndex].length; i++) {
+      //                     paths[foundIndex][i] = paths[foundIndex][i] + delta;
+      //                   }
+      //                 }
+      //                 initialDragOffset = details.localPosition; // Update the drag point
+      //               }else{
+      //                 RenderBox renderBox = context.findRenderObject() as RenderBox;
+      //                 Matrix4 matrix = _transformationController.value;
+      //                 Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+      //                 localPosition = _applyMatrixToPoint(localPosition, matrix);
+      //                 lassoPath.add(localPosition);
+      //               }
+      //             });
+      //           }
+      //         },
+      //         onPanEnd: (details) {
+      //           if (currentState == AppState.lassoing) {
+      //             if (isMovingPoints) { // interaction ended when selected path has been dragging made from lasso feature
+      //               isMovingPoints = false; // then unselect the selected path from lasso
+      //               selectedPoints.clear(); 
+      //             }else{
+      //               selectPointsInsideLasso();
+      //               setState(() {
+      //                 lassoPath = []; // Clear lasso after selection
+      //               });
+      //             }
+      //           }
+      //           else if (currentState == AppState.drawing) {
+      //             setState(() {
+      //               paths.add(currentPath); // uc-7
+      //               currentPath = []; // Clear current path for new drawing uc-7
+      //             });
+      //           }
+      //         },
+      //         child: ColoredBox(
+      //           color: const Color.fromARGB(255, 223, 188, 210),  // Background color
+      //           child: Stack(
+      //             children: [
+      //               CustomPaint(
+      //                 painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath, foundPathIndex, foundPathIndices),
+      //                 size: const Size(1000, 1000),
+      //               ),
+      //             ],
+      //           ) 
+      //         )
+      //       ),
+    );
+  }
+
+
+  Widget _buildViewBasedOnState(AppState currentState) {
+    switch (currentState) {
+      case AppState.zooming:
+        return _buildZoomingView();
+      case AppState.resizingBlock:
+        return _buildResizingView();
+      case AppState.drawing:
+      case AppState.erasing:
+      case AppState.lassoing:
+      default:
+        return _buildDrawingView();
+    }
+  }
+
+  Widget _buildDrawingView() {
+    final AppState currentState = context.watch<StateManagerModel>().currentState;
+    return GestureDetector( // Drawing mode is enabled 
+      onTapUp: (details) {
                   handleTap(details.localPosition); // Check if tap clears selection
               },
-              onPanStart: (details) {
+      onPanStart: (details) {
                 setState(() {
                   if(currentState == AppState.drawing){
                     currentPath = [details.localPosition];
@@ -146,7 +259,7 @@ class _MiddleViewState extends State<_MiddleView> {
                   }
                 });
               },
-              onPanUpdate: (details) {
+      onPanUpdate: (details) {
                   if(currentState == AppState.drawing){
                   setState(() {
                     RenderBox renderBox = context.findRenderObject() as RenderBox;
@@ -186,41 +299,74 @@ class _MiddleViewState extends State<_MiddleView> {
                   });
                 }
               },
-              onPanEnd: (details) {
-                if (currentState == AppState.lassoing) {
-                  if (isMovingPoints) { // interaction ended when selected path has been dragging made from lasso feature
-                    isMovingPoints = false; // then unselect the selected path from lasso
-                    selectedPoints.clear(); 
-                  }else{
-                    selectPointsInsideLasso();
-                    setState(() {
-                      lassoPath = []; // Clear lasso after selection
-                    });
-                  }
-                }
-                else if (currentState == AppState.drawing) {
-                  setState(() {
-                    paths.add(currentPath); // uc-7
-                    currentPath = []; // Clear current path for new drawing uc-7
-                  });
-                }
-              },
-              child: ColoredBox(
-                color: const Color.fromARGB(255, 223, 188, 210),  // Background color
-                child: Stack(
-                  children: [
-                    CustomPaint(
-                      painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath, foundPathIndex, foundPathIndices),
-                      size: const Size(1000, 1000),
-                    ),
-                  ],
-                ) 
-              )
+      onPanEnd: (details) {
+        if (currentState == AppState.lassoing) {
+          if (isMovingPoints) { // interaction ended when selected path has been dragging made from lasso feature
+            isMovingPoints = false; // then unselect the selected path from lasso
+            selectedPoints.clear(); 
+          }else{
+            selectPointsInsideLasso();
+            setState(() {
+              lassoPath = []; // Clear lasso after selection
+            });
+          }
+        }
+        else if (currentState == AppState.drawing) {
+          setState(() {
+            paths.add(currentPath); // uc-7
+            currentPath = []; // Clear current path for new drawing uc-7
+          });
+        }
+      },
+      child: ColoredBox(
+        color: const Color.fromARGB(255, 223, 188, 210),  // Background color
+        child: Stack(
+          children: [
+            CustomPaint(
+              painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath, foundPathIndex, foundPathIndices),
+              size: const Size(1000, 1000),
             ),
+          ],
+        ) 
+      )
     );
   }
 
-// Method to handle tap location and clear selection if outside
+  Widget _buildZoomingView() {
+    
+    return Container(
+      color: const Color.fromARGB(255, 223, 188, 210),
+      child: CustomPaint(
+        painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath, foundPathIndex, foundPathIndices),
+        size: boxSize,
+      ),
+    );
+  }
+
+   Widget _buildResizingView() {
+    return GestureDetector(
+      onPanUpdate: (details) {
+        setState(() {
+          boxSize = Size(
+            (boxSize.width + details.delta.dx).clamp(200, double.infinity),
+            (boxSize.height + details.delta.dy).clamp(200, double.infinity),
+          );
+        });
+      },
+      child: Container(
+        color: const Color.fromARGB(255, 223, 188, 210),
+        width: boxSize.width,
+        height: boxSize.height,
+        child: CustomPaint(
+          painter: DrawingPainter(paths, currentPath, selectedPoints, lassoPath, foundPathIndex, foundPathIndices),
+          size: boxSize,
+        ),
+      ),
+    );
+  }
+
+
+  // Method to handle tap location and clear selection if outside
   void handleTap(Offset tapPosition) {
     bool tapIsNearSelected = selectedPoints.any((point) {     // Calculate if tap is close to any selected points
       return (point - tapPosition).distance < 15; // Adjust the distance threshold as needed
