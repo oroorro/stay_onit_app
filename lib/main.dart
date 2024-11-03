@@ -94,7 +94,7 @@ class _MiddleViewState extends State<_MiddleView> {
 
   Offset? lastTapLocation; // Store last tap location for click detection
 
-  Size boxSize = const Size(1000, 1000); // Initial ColoredBox size
+  Size boxSize = const Size(600, 600); // Initial ColoredBox size
   bool resizeHappened = false;  //flag to control repaint on resize, will be set true when resizingBlock gets triggered in _buildResizeHandle; onpanUpdate and set to false again onPanEnd in _buildResizeHandle 
 
   @override
@@ -143,62 +143,73 @@ class _MiddleViewState extends State<_MiddleView> {
     final AppState currentState = context.watch<StateManagerModel>().currentState;
     return GestureDetector( // Drawing mode is enabled 
       onTapUp: (details) {
-                  handleTap(details.localPosition); // Check if tap clears selection
-              },
+        handleTap(details.localPosition); // Check if tap clears selection
+      },
       onPanStart: (details) {
-                setState(() {
-                  if(currentState == AppState.drawing){
-                    currentPath = [details.localPosition];
-                  }else if(currentState == AppState.lassoing){
-                    if(selectedPoints.isNotEmpty){ //when selected path exist, Start moving points if any are selected
-                      isMovingPoints = true;
-                      initialDragOffset = details.localPosition;
-                    }else{ // save currently drawn path as lasso path 
-                      lassoPath = [details.localPosition];
-                    } 
-                  }
-                });
-              },
+        setState(() {
+          if(currentState == AppState.drawing){
+            currentPath = [details.localPosition];
+          }else if(currentState == AppState.lassoing){
+            if(selectedPoints.isNotEmpty){ //when selected path exist, Start moving points if any are selected
+              isMovingPoints = true;
+              initialDragOffset = details.localPosition;
+            }else{ // save currently drawn path as lasso path 
+              lassoPath = [details.localPosition];
+            } 
+          }
+        });
+      },
       onPanUpdate: (details) {
-                  if(currentState == AppState.drawing){
-                  setState(() {
-                    RenderBox renderBox = context.findRenderObject() as RenderBox;
-                    Matrix4 matrix = _transformationController.value;
-                    Offset localPosition = renderBox.globalToLocal(details.globalPosition);
-                    localPosition = _applyMatrixToPoint(localPosition, matrix);
-                    currentPath.add(details.localPosition);  //uc-7
-                  });
-                }else if(currentState == AppState.erasing){ // Perform erasing
-                   setState(() {
-                    RenderBox renderBox = context.findRenderObject() as RenderBox;
-                    Offset localPosition = renderBox.globalToLocal(details.globalPosition);
-                    Matrix4 matrix = _transformationController.value;
-                    localPosition = _applyMatrixToPoint(localPosition, matrix);
-                    //_erasePoint(details.globalPosition);  
-                    _erasePoint(localPosition);  
-                  });
+        if(currentState == AppState.drawing){
+          setState(() {
+            // RenderBox renderBox = context.findRenderObject() as RenderBox;
+            // Matrix4 matrix = _transformationController.value;
+
+            // Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+            // localPosition = _applyMatrixToPoint(localPosition, matrix);
+
+            RenderBox renderBox = context.findRenderObject() as RenderBox;
+            Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+            
+            // Apply transformation matrix to localPosition
+            Matrix4 matrix = _transformationController.value;
+            localPosition = _applyMatrixToPoint(localPosition, matrix);     
+            currentPath.add(details.localPosition);  //uc-7
+
+            // Check if any point exceeds the current `boxSize`
+            _updateBoxSizeForPath(localPosition);
+          });
+        }else if(currentState == AppState.erasing){ // Perform erasing
+          setState(() {
+            RenderBox renderBox = context.findRenderObject() as RenderBox;
+            Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+            Matrix4 matrix = _transformationController.value;
+            localPosition = _applyMatrixToPoint(localPosition, matrix);
+            //_erasePoint(details.globalPosition);  
+            _erasePoint(localPosition);  
+          });
+        }
+        else if(currentState == AppState.lassoing){ //Perform Lasso
+          //draw points when dragging on the canvas 
+          setState(() {
+            if (isMovingPoints && selectedPoints.isNotEmpty){ 
+              Offset delta = details.localPosition - initialDragOffset;
+              for (var foundIndex in foundPathIndices) {
+                for (int i = 0; i < paths[foundIndex].length; i++) {
+                  paths[foundIndex][i] = paths[foundIndex][i] + delta;
                 }
-                else if(currentState == AppState.lassoing){ //Perform Lasso
-                  //draw points when dragging on the canvas 
-                  setState(() {
-                    if (isMovingPoints && selectedPoints.isNotEmpty){ 
-                      Offset delta = details.localPosition - initialDragOffset;
-                      for (var foundIndex in foundPathIndices) {
-                        for (int i = 0; i < paths[foundIndex].length; i++) {
-                          paths[foundIndex][i] = paths[foundIndex][i] + delta;
-                        }
-                      }
-                      initialDragOffset = details.localPosition; // Update the drag point
-                    }else{
-                      RenderBox renderBox = context.findRenderObject() as RenderBox;
-                      Matrix4 matrix = _transformationController.value;
-                      Offset localPosition = renderBox.globalToLocal(details.globalPosition);
-                      localPosition = _applyMatrixToPoint(localPosition, matrix);
-                      lassoPath.add(localPosition);
-                    }
-                  });
-                }
-              },
+              }
+              initialDragOffset = details.localPosition; // Update the drag point
+            }else{
+              RenderBox renderBox = context.findRenderObject() as RenderBox;
+              Matrix4 matrix = _transformationController.value;
+              Offset localPosition = renderBox.globalToLocal(details.globalPosition);
+              localPosition = _applyMatrixToPoint(localPosition, matrix);
+              lassoPath.add(localPosition);
+            }
+          });
+        }
+      },
       onPanEnd: (details) {
         if (currentState == AppState.lassoing) {
           if (isMovingPoints) { // interaction ended when selected path has been dragging made from lasso feature
@@ -232,6 +243,31 @@ class _MiddleViewState extends State<_MiddleView> {
     );
   }
 
+
+void _updateBoxSizeForPath(Offset point) {
+    bool needsResize = false;
+    double newWidth = boxSize.width;
+    double newHeight = boxSize.height;
+
+    const padding = 50.0;
+
+    print('updateBoxSize $point $boxSize');
+    if (point.dx > boxSize.width - padding ) {
+      newWidth = point.dx + 20; // Add padding
+      needsResize = true;
+    }
+    if (point.dy > boxSize.height - padding ) {
+      newHeight = point.dy + 20; // Add padding
+      needsResize = true;
+    }
+
+    if (needsResize) {
+      setState(() {
+        boxSize = Size(newWidth, newHeight);
+        print("Box size updated to: $boxSize"); // Log the new box size
+      });
+    }
+  }
   Widget _buildZoomingView() {
     
     return Container(
@@ -486,15 +522,15 @@ class DrawingPainter extends CustomPainter {
 
   }
 
-@override
-bool shouldRepaint(DrawingPainter oldDelegate) {
-  return 
-        oldDelegate.resizeHappened !=  resizeHappened||
-        oldDelegate.paths != paths ||
-        oldDelegate.currentPath != currentPath ||
-        oldDelegate.selectedPoints != selectedPoints ||
-        oldDelegate.lassoPath != lassoPath ||
-        oldDelegate.foundPathIndex != foundPathIndex ||
-        oldDelegate.foundPathIndices != foundPathIndices;
-}
+  @override
+  bool shouldRepaint(DrawingPainter oldDelegate) {
+    return true;
+          // oldDelegate.resizeHappened !=  resizeHappened||
+          // oldDelegate.paths != paths ||
+          // oldDelegate.currentPath != currentPath ||
+          // oldDelegate.selectedPoints != selectedPoints ||
+          // oldDelegate.lassoPath != lassoPath ||
+          // oldDelegate.foundPathIndex != foundPathIndex ||
+          // oldDelegate.foundPathIndices != foundPathIndices;
+  }
 }
