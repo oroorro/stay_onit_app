@@ -10,6 +10,8 @@ import 'models/app_state.dart';
 import 'models/state_manager_model.dart';
 
 import 'top_nav.dart';
+import 'bottom_nav.dart';
+
 
 void main() {
   runApp(
@@ -59,15 +61,27 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Column(
         children: [
           TopNav(),  // Pass callback to _TopNav
-          SizedBox(
-            width: boxSize.width,
-            height: boxSize.height,
-            child: _MiddleView(boxSize: boxSize, onResize: (newSize) {
-              setState(() {
-                boxSize = newSize; // Update box size dynamically
-              });
-            }),
+          Expanded(
+             child: SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: boxSize.width,
+                  height: boxSize.height,
+                  child: _MiddleView(
+                    boxSize: boxSize,
+                    onResize: (newSize) {
+                      setState(() {
+                        boxSize = newSize; // Update box size dynamically
+                      });
+                    },
+                  ),
+                ),
+              ),
+            ),
           ),
+          BottomNav(),
         ],
       ),
     );
