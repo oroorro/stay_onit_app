@@ -80,13 +80,17 @@ class _MiddleView extends StatefulWidget {
   final Size boxSize;
   final ValueChanged<Size> onResize; // Callback to update size
   
+  
   const _MiddleView({required this.boxSize, required this.onResize});
+
+  
   
   @override
   State<_MiddleView> createState() => _MiddleViewState();
 }
 
 class _MiddleViewState extends State<_MiddleView> {
+  Key _interactiveViewerKey = UniqueKey();
   //List<Offset> points = [];  // Store the points where the user drags
   Offset totalPanOffset = Offset.zero;
   final TransformationController  _transformationController = TransformationController();
@@ -106,7 +110,7 @@ class _MiddleViewState extends State<_MiddleView> {
 
   Offset? lastTapLocation; // Store last tap location for click detection
 
-  Size boxSize = const Size(1000, 1000); // Initial ColoredBox size
+  Size boxSize = const Size(400, 600); // Initial ColoredBox size
   bool resizeHappened = false;  //flag to control repaint on resize, will be set true when resizingBlock gets triggered in _buildResizeHandle; onpanUpdate and set to false again onPanEnd in _buildResizeHandle 
 
   @override
@@ -158,19 +162,19 @@ class _MiddleViewState extends State<_MiddleView> {
                   handleTap(details.localPosition); // Check if tap clears selection
               },
       onPanStart: (details) {
-                setState(() {
-                  if(currentState == AppState.drawing){
-                    currentPath = [details.localPosition];
-                  }else if(currentState == AppState.lassoing){
-                    if(selectedPoints.isNotEmpty){ //when selected path exist, Start moving points if any are selected
-                      isMovingPoints = true;
-                      initialDragOffset = details.localPosition;
-                    }else{ // save currently drawn path as lasso path 
-                      lassoPath = [details.localPosition];
-                    } 
-                  }
-                });
-              },
+        setState(() {
+          if(currentState == AppState.drawing){
+            currentPath = [details.localPosition];
+          }else if(currentState == AppState.lassoing){
+            if(selectedPoints.isNotEmpty){ //when selected path exist, Start moving points if any are selected
+              isMovingPoints = true;
+              initialDragOffset = details.localPosition;
+            }else{ // save currently drawn path as lasso path 
+              lassoPath = [details.localPosition];
+            } 
+          }
+        });
+      },
       onPanUpdate: (details) {
         if(currentState == AppState.drawing){
           setState(() {
@@ -179,6 +183,7 @@ class _MiddleViewState extends State<_MiddleView> {
             Offset localPosition = renderBox.globalToLocal(details.globalPosition);
             localPosition = _applyMatrixToPoint(localPosition, matrix);
             currentPath.add(details.localPosition);  //uc-7
+            _updateBoxSizeForPath(localPosition);
           });
         }else if(currentState == AppState.erasing){ // Perform erasing
             setState(() {
@@ -243,6 +248,32 @@ class _MiddleViewState extends State<_MiddleView> {
       )
     );
   }
+  void _updateBoxSizeForPath(Offset point) {
+    bool needsResize = false;
+    double newWidth = boxSize.width;
+    double newHeight = boxSize.height;
+
+    const padding = 10.0;
+
+    print('updateBoxSize $point $boxSize');
+    if (point.dx > boxSize.width - padding ) {
+      newWidth = point.dx + 20; // Add padding
+      needsResize = true;
+    }
+    if (point.dy > boxSize.height - padding ) {
+      newHeight = point.dy + 20; // Add padding
+      needsResize = true;
+    }
+
+    if (needsResize) {
+      setState(() {
+        boxSize = Size(newWidth, newHeight);
+        widget.onResize(boxSize);
+        print("Box size updated to: $boxSize"); // Log the new box size
+      });
+      
+    }
+  }
 
   Widget _buildZoomingView() {
     
@@ -255,37 +286,53 @@ class _MiddleViewState extends State<_MiddleView> {
     );
   }
 
-Widget _buildResizingView() {
+  Widget _buildResizingView() {
   //print('_buildResizingView :resizeHappened $resizeHappened $boxSize');
+  double dynamicBoundary = widget.boxSize.width > widget.boxSize.height
+    ? widget.boxSize.width
+    : widget.boxSize.height;
+
   return GestureDetector(
     child: Container(
-      color: const Color.fromARGB(255, 223, 188, 210),
+      color: const Color.fromARGB(255, 229, 110, 186),
       width: boxSize.width,
       height: boxSize.height,
-      child: Stack(
-        children: [
-          CustomPaint(
-            painter: DrawingPainter(
-              paths,
-              currentPath,
-              selectedPoints,
-              lassoPath,
-              foundPathIndex,
-              foundPathIndices,
-              resizeHappened
+      child: InteractiveViewer(
+        //key: _interactiveViewerKey,
+        transformationController: _transformationController,
+        boundaryMargin: EdgeInsets.all(dynamicBoundary), // Update based on box size
+        minScale: 0.2,
+        maxScale: 4.0,
+        child: Stack(
+          children: [
+            CustomPaint(
+              painter: DrawingPainter(
+                paths,
+                currentPath,
+                selectedPoints,
+                lassoPath,
+                foundPathIndex,
+                foundPathIndices,
+                resizeHappened
+              ),
+              size: boxSize,
             ),
-            size: boxSize,
-          ),
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: _buildResizeHandle(),
-          ),
-        ],
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Transform.scale(
+                scale: 1 / _transformationController.value.getMaxScaleOnAxis(),
+                child: _buildResizeHandle(),
+              ),
+            ),
+          ],
+        ),
       ),
     ),
   );
 }
+
+
 
 
   //helper method that gets triggered when edge anchor gets clicked, it is used to resize the block 
@@ -297,7 +344,11 @@ Widget _buildResizingView() {
           (widget.boxSize.width + details.delta.dx).clamp(200, double.infinity),
           (widget.boxSize.height + details.delta.dy).clamp(200, double.infinity),
         );
-        widget.onResize(newSize);
+        setState(() {
+          widget.onResize(newSize);
+          //_interactiveViewerKey = UniqueKey(); 
+        });
+        
         print('Updated boxSize in _buildResizeHandle: $newSize');
       },
       onPanEnd: (details) {
@@ -499,7 +550,7 @@ class DrawingPainter extends CustomPainter {
 
 @override
 bool shouldRepaint(DrawingPainter oldDelegate) {
-  return 
+  return true;
         oldDelegate.resizeHappened !=  resizeHappened||
         oldDelegate.paths != paths ||
         oldDelegate.currentPath != currentPath ||
