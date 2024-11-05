@@ -187,24 +187,7 @@ class _MiddleViewState extends State<_MiddleView> {
       },
       child: Stack(
         children: [
-          // Display imported image if available
-          if (_importedImage != null)
-            Positioned(
-              left: _imagePosition.dx,
-              top: _imagePosition.dy,
-              child: GestureDetector(
-                onScaleUpdate: (details) {
-                  setState(() {
-                    _imageScale = details.scale;
-                  });
-                },
-                child: Transform.scale(
-                  scale: _imageScale,
-                  child: Image.file(_importedImage!),
-                ),
-              ),
-            ),
-          // Other views based on the current app state
+          //display views based on the current app state
           _buildViewBasedOnState(currentState),
         ],
       ),
@@ -229,26 +212,26 @@ class _MiddleViewState extends State<_MiddleView> {
   }
 
   Widget _buildImageView() {
-    return Center(
-      child: _importedImage != null
-          ? Positioned(
-              left: _imagePosition.dx,
-              top: _imagePosition.dy,
-              child: GestureDetector(
-                onScaleUpdate: (details) {
-                  setState(() {
-                    _imageScale = details.scale;
-                  });
-                },
-                child: Transform.scale(
-                  scale: _imageScale,
-                  child: Image.file(_importedImage!),
-                ),
+  return Center(
+    child: _importedImage != null
+        ? GestureDetector(
+            onScaleUpdate: (details) {
+              setState(() {
+                _imageScale = details.scale;
+              });
+            },
+            child: Transform.translate(
+              offset: _imagePosition,
+              child: Transform.scale(
+                scale: _imageScale,
+                child: Image.file(_importedImage!),
               ),
-            )
-          : const Text("No image available"),
-    );
-  }
+            ),
+          )
+        : const Text("No image available"),
+  );
+}
+
 
   Widget _buildDrawingView() {
     final AppState currentState = context.watch<StateManagerModel>().currentState;
