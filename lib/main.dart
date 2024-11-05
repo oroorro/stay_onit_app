@@ -12,6 +12,8 @@ import 'models/state_manager_model.dart';
 import 'top_nav.dart';
 import 'bottom_nav.dart';
 
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 void main() {
   runApp(
@@ -127,6 +129,42 @@ class _MiddleViewState extends State<_MiddleView> {
   Size boxSize = const Size(400, 600); // Initial ColoredBox size
   bool resizeHappened = false;  //flag to control repaint on resize, will be set true when resizingBlock gets triggered in _buildResizeHandle; onpanUpdate and set to false again onPanEnd in _buildResizeHandle 
 
+  //image importing feature 
+  File? _importedImage;
+  Offset _imagePosition = Offset.zero;
+  double _imageScale = 1.0;
+
+
+  @override
+  void didChangeDependencies() {
+      super.didChangeDependencies();
+      final currentState = context.watch<StateManagerModel>().currentState;
+      if (currentState == AppState.importImage) {
+        _pickImage();
+      }
+  }
+
+  Future<void> _pickImage() async {
+  try {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        _importedImage = File(pickedFile.path);
+        _imagePosition = Offset.zero;
+        _imageScale = 1.0;
+      });
+      context.read<StateManagerModel>().updateCurrentState(AppState.viewImage); 
+    } else {
+      print("No image selected.");
+    }
+  } catch (e) {
+    print("Error picking image: $e");
+  }
+}
+
+
   @override
   Widget build(BuildContext context) {
 
@@ -137,20 +175,39 @@ class _MiddleViewState extends State<_MiddleView> {
       boundaryMargin: const EdgeInsets.all(double.infinity),  // Allow panning without limits
       minScale: 0.2,  // Minimum zoom scale
       maxScale: 4.0,  // Maximum zoom scale
-      onInteractionStart: (details) {
-
-      },
-       onInteractionUpdate: (details) {
-        if (currentState == AppState.zooming) {
-          // Use focalPointDelta to track panning or zoom changes
-          setState(() {
-            totalPanOffset += details.focalPointDelta;
-          });
-        }
+      onInteractionUpdate: (details) {
+      if (currentState == AppState.zooming) {
+        // Use focalPointDelta to track panning or zoom changes
+        setState(() {
+          totalPanOffset += details.focalPointDelta;
+        });
+      }
       },
       onInteractionEnd: (details) {
       },
-     child: _buildViewBasedOnState(currentState),
+      child: Stack(
+        children: [
+          // Display imported image if available
+          if (_importedImage != null)
+            Positioned(
+              left: _imagePosition.dx,
+              top: _imagePosition.dy,
+              child: GestureDetector(
+                onScaleUpdate: (details) {
+                  setState(() {
+                    _imageScale = details.scale;
+                  });
+                },
+                child: Transform.scale(
+                  scale: _imageScale,
+                  child: Image.file(_importedImage!),
+                ),
+              ),
+            ),
+          // Other views based on the current app state
+          _buildViewBasedOnState(currentState),
+        ],
+      ),
     );
   }
 
@@ -161,12 +218,36 @@ class _MiddleViewState extends State<_MiddleView> {
         return _buildZoomingView();
       case AppState.resizingBlock:
         return _buildResizingView();
+      case AppState.viewImage:
+        return _buildImageView(); 
       case AppState.drawing:
       case AppState.erasing:
       case AppState.lassoing:
       default:
         return _buildDrawingView();
     }
+  }
+
+  Widget _buildImageView() {
+    return Center(
+      child: _importedImage != null
+          ? Positioned(
+              left: _imagePosition.dx,
+              top: _imagePosition.dy,
+              child: GestureDetector(
+                onScaleUpdate: (details) {
+                  setState(() {
+                    _imageScale = details.scale;
+                  });
+                },
+                child: Transform.scale(
+                  scale: _imageScale,
+                  child: Image.file(_importedImage!),
+                ),
+              ),
+            )
+          : const Text("No image available"),
+    );
   }
 
   Widget _buildDrawingView() {

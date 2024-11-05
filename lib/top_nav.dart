@@ -28,7 +28,11 @@ class TopNav extends StatelessWidget {
             }
           ),
           StyledButton(Icons.add, null, 'New Block'),
-          StyledButton(Icons.publish, null, 'Import'),
+          StyledButton(Icons.publish, null, 'Import',
+            (){
+                context.read<StateManagerModel>().updateCurrentState(AppState.importImage);
+            }
+          ),
           StyledButton(
               // 'assets/images/eraser-icon.svg',  // SVG asset path
               Icons.check_box_outline_blank,
