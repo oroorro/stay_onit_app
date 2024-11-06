@@ -15,6 +15,9 @@ import 'bottom_nav.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
+import 'package:crop_your_image/crop_your_image.dart';
+import 'dart:typed_data';
+
 void main() {
   runApp(
     ChangeNotifierProvider(
@@ -54,6 +57,36 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Size boxSize = const Size(800, 750); // Initial size
 
+  List<_MiddleView> drawingViews = []; // Store instances of _buildDrawingView
+  int selectedDrawingViewId = 1; // Track selected _buildDrawingView ID
+  int nextViewId = 1; // Track next ID for new instances
+
+
+  // Create a new drawing view and add it to the list
+  void createNewDrawingView() {
+    setState(() {
+      drawingViews.add(
+        _MiddleView(
+          boxSize: boxSize,
+          onResize: (newSize) {
+            setState(() {
+              boxSize = newSize;
+            });
+          },
+        ),
+      );
+      print("drawingViews $drawingViews");
+      nextViewId++;
+      selectedDrawingViewId = drawingViews.length; // Set the new view as selected
+    });
+  }
+
+  void selectDrawingView(int id) {
+    setState(() {
+      selectedDrawingViewId = id;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -62,7 +95,7 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Column(
         children: [
-          TopNav(),  // Pass callback to _TopNav
+          const TopNav(),  // Pass callback to _TopNav
           Expanded(
              child: SingleChildScrollView(
               scrollDirection: Axis.vertical,
@@ -71,19 +104,26 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: SizedBox(
                   width: boxSize.width,
                   height: boxSize.height,
-                  child: _MiddleView(
-                    boxSize: boxSize,
-                    onResize: (newSize) {
-                      setState(() {
-                        boxSize = newSize; // Update box size dynamically
-                      });
-                    },
-                  ),
+                   child: drawingViews.isNotEmpty
+                      ? drawingViews[selectedDrawingViewId - 1] // Show selected view
+                      : const Center(child: Text("No Drawing View")),
+                  // child: _MiddleView(
+                  //   boxSize: boxSize,
+                  //   onResize: (newSize) {
+                  //     setState(() {
+                  //       boxSize = newSize; // Update box size dynamically
+                  //     });
+                  //   },
+                  // ),
                 ),
               ),
             ),
           ),
-          BottomNav(),
+          BottomNav(
+            onNewDrawingView: createNewDrawingView,
+            onSelectDrawingView: selectDrawingView,
+            drawingViewCount: drawingViews.length + 1,
+          ),
         ],
       ),
     );
@@ -107,6 +147,8 @@ class _MiddleView extends StatefulWidget {
 
 class _MiddleViewState extends State<_MiddleView> {
   Key _interactiveViewerKey = UniqueKey();
+  final CropController _cropController = CropController(); 
+
   //List<Offset> points = [];  // Store the points where the user drags
   Offset totalPanOffset = Offset.zero;
   final TransformationController  _transformationController = TransformationController();
@@ -134,6 +176,9 @@ class _MiddleViewState extends State<_MiddleView> {
   Offset _imagePosition = Offset.zero;
   double _imageScale = 1.0;
 
+  //image cropping 
+  Uint8List? _croppedImageData;
+  bool isCropping = false;
 
   @override
   void didChangeDependencies() {
@@ -154,6 +199,7 @@ class _MiddleViewState extends State<_MiddleView> {
         _importedImage = File(pickedFile.path);
         _imagePosition = Offset.zero;
         _imageScale = 1.0;
+        isCropping = true; 
       });
       context.read<StateManagerModel>().updateCurrentState(AppState.viewImage); 
     } else {
@@ -163,6 +209,13 @@ class _MiddleViewState extends State<_MiddleView> {
     print("Error picking image: $e");
   }
 }
+
+void _onCropCompleted(Uint8List croppedData) {
+    setState(() {
+      _croppedImageData = croppedData;
+      isCropping = false;  // Disable cropping view after crop is complete
+    });
+  }
 
 
   @override
@@ -187,6 +240,9 @@ class _MiddleViewState extends State<_MiddleView> {
       },
       child: Stack(
         children: [
+           if (currentState == AppState.cropImage)
+            _buildImageCropView()  // Show cropping view
+          else
           //display views based on the current app state
           _buildViewBasedOnState(currentState),
         ],
@@ -209,6 +265,18 @@ class _MiddleViewState extends State<_MiddleView> {
       default:
         return _buildDrawingView();
     }
+  }
+
+ Widget _buildImageCropView() {
+    return Center(
+      child: _importedImage != null
+          ? Crop(
+              controller: _cropController,
+              image: _importedImage!.readAsBytesSync(),
+              onCropped: _onCropCompleted,
+            )
+          : const Text("No image available"),
+    );
   }
 
   Widget _buildImageView() {

@@ -6,7 +6,15 @@ import 'models/state_manager_model.dart';
 
 
 class BottomNav extends StatelessWidget{
-  const BottomNav();
+  final VoidCallback onNewDrawingView;
+  final Function(int) onSelectDrawingView;
+  final int drawingViewCount;
+
+   const BottomNav({
+    required this.onNewDrawingView,
+    required this.onSelectDrawingView,
+    required this.drawingViewCount,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -26,14 +34,31 @@ class BottomNav extends StatelessWidget{
           ),
           TextButton(
             onPressed: () {
-              print("button 2 is pressed");
+              onNewDrawingView();
+              print("create new block button is pressed");
             },
+             
             style: TextButton.styleFrom(
               foregroundColor: Colors.white,
-              backgroundColor: Colors.blue,
+              backgroundColor: const Color.fromARGB(255, 0, 0, 0),
             ),
-            child: const Text("2"),
-          )
+            child: const Text("New"),
+          ),
+          // Create a button for each drawing view instance
+          ...List.generate(drawingViewCount - 1, (index) {
+            final viewId = index + 1;
+            return TextButton(
+              onPressed: () {
+                onSelectDrawingView(viewId);
+                print("button $viewId is pressed");
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: Colors.blue,
+              ),
+              child: Text(viewId.toString()),
+            );
+          }),
         ]
       )
     );

@@ -55,6 +55,11 @@ class TopNav extends StatelessWidget {
           StyledButton(Icons.open_in_full, null, 'Resize', (){
             context.read<StateManagerModel>().updateCurrentState(AppState.resizingBlock);
           }),
+          StyledButton(Icons.content_cut, null, 'Resize', (){
+            final AppState currentState = Provider.of<StateManagerModel>(context, listen: false).currentState;
+            final AppState cropState = currentState == AppState.cropImage ? AppState.viewImage : AppState.cropImage;
+            context.read<StateManagerModel>().updateCurrentState(cropState);
+          }),
         ],
       ),
     );
