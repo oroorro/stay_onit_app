@@ -34,8 +34,7 @@ class BottomNav extends StatelessWidget{
           ),
           TextButton(
             onPressed: () {
-              onNewDrawingView();
-              print("create new block button is pressed");
+              onNewDrawingView(); // add _MiddleView into drawingViews from index 0 .. 1 .. 2
             },
              
             style: TextButton.styleFrom(
@@ -45,13 +44,14 @@ class BottomNav extends StatelessWidget{
             child: const Text("New"),
           ),
           // Create a button for each drawing view instance
-          ...List.generate(drawingViewCount - 1, (index) {
+          ...List.generate(drawingViewCount, (index) {
             final viewId = index + 1;
             return TextButton(
-              onPressed: () {
-                onSelectDrawingView(viewId);
-                print("button $viewId is pressed");
-              },
+              
+              onPressed: () => {
+                print("index at onPressed $index"),
+                onSelectDrawingView(index)
+                },
               style: TextButton.styleFrom(
                 foregroundColor: Colors.white,
                 backgroundColor: Colors.blue,
