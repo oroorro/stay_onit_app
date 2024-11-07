@@ -19,6 +19,7 @@ import 'package:crop_your_image/crop_your_image.dart';
 import 'dart:typed_data';
 
 void main() {
+  //debugPrintRebuildDirtyWidgets = true;
   runApp(
     ChangeNotifierProvider(
       create: (context) => StateManagerModel(),
@@ -61,33 +62,48 @@ class _MyHomePageState extends State<MyHomePage> {
   int selectedDrawingViewIndex = 0; // Track selected index
   int nextViewId = 1; // Track next ID for new instances
 
+  //_MiddleView? currentView;  // Track the current view explicitly
+  List<_MiddleViewState?> drawingViewStates = [];
 
   // Create a new drawing view and add it to the list
   void createNewDrawingView() {
     setState(() {
-      final viewId = nextViewId++; // Increment ID for the next view
-      drawingViews.add( //starts adding from 0..1..2 
-        _MiddleView(
-          key: ValueKey(viewId),
-          viewId: viewId, 
-          boxSize: boxSize,
-          onResize: (newSize) {
-            setState(() {
-              boxSize = newSize;
-            });
-          },
-        ),
+      final viewId = nextViewId++;
+      drawingViews = [...drawingViews];
+      drawingViewStates = [...drawingViewStates];
+    
+       final newView = _MiddleView(
+        key: UniqueKey(),
+        viewId: viewId,
+        boxSize: boxSize,
+        onResize: (newSize) {
+          setState(() {
+            boxSize = newSize;
+          });
+        },
+        onStateReady: (state) {
+          drawingViewStates.add(state);
+        },
       );
-      print("create new block button is pressed $drawingViews");
+      drawingViews.add(newView);
       print("Created _MiddleView with viewId: $viewId");
-      selectedDrawingViewIndex = drawingViews.length - 1;
+      selectedDrawingViewIndex = drawingViews.length - 1; // Select the new drawing view
     });
   }
 
+
+
   void selectDrawingView(int index) {
     setState(() {
-      selectedDrawingViewIndex = index;
-       print("Selected _MiddleView with viewId: ${drawingViews[index].viewId}");
+      if (selectedDrawingViewIndex != index) {
+        // Dispose of the currently selected view's state
+        final currentViewState = drawingViewStates[selectedDrawingViewIndex];
+        currentViewState?.dispose();
+
+        // Update the selected index
+        selectedDrawingViewIndex = index;
+        print("Selected _MiddleView with viewId: ${drawingViews[index].viewId}");
+      }
     });
   }
 
@@ -101,10 +117,10 @@ class _MyHomePageState extends State<MyHomePage> {
         children: [
           const TopNav(),  // Pass callback to _TopNav
           Expanded(
-             child: SingleChildScrollView(
-              scrollDirection: Axis.vertical,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
+            //  child: SingleChildScrollView(
+            //   scrollDirection: Axis.vertical,
+            //   child: SingleChildScrollView(
+            //     scrollDirection: Axis.horizontal,
                 child: SizedBox(
                   width: boxSize.width,
                   height: boxSize.height,
@@ -120,8 +136,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   //   },
                   // ),
                 ),
-              ),
-            ),
+              // ),
+            // ),
           ),
           BottomNav(
             onNewDrawingView: createNewDrawingView,
@@ -140,9 +156,16 @@ class _MiddleView extends StatefulWidget {
   final Size boxSize;
   final ValueChanged<Size> onResize; // Callback to update size
   final int viewId;
+  final Function(_MiddleViewState) onStateReady;
   
   
-  const _MiddleView({Key? key, required this.viewId, required this.boxSize, required this.onResize});
+  const _MiddleView({
+    Key? key, 
+    required this.viewId, 
+    required this.boxSize, 
+    required this.onResize, 
+    required this.onStateReady}) : super(key: key);
+
 
   
   @override
@@ -187,6 +210,7 @@ class _MiddleViewState extends State<_MiddleView> {
   @override
   void initState() {
     super.initState();
+    widget.onStateReady(this);
     print("Initializing _MiddleViewState for viewId: ${widget.viewId} with empty paths");
   }
 
@@ -236,7 +260,7 @@ void _onCropCompleted(Uint8List croppedData) {
 
   @override
   Widget build(BuildContext context) {
-    print("Rendering _MiddleView with viewId: ${widget.viewId} path: $paths");
+    print("Rendering _MiddleView with viewId: ${widget.viewId} path: ${paths.length}");
     final AppState currentState = context.watch<StateManagerModel>().currentState; 
 
      return InteractiveViewer(
@@ -417,7 +441,7 @@ void _onCropCompleted(Uint8List croppedData) {
 
     const padding = 10.0;
 
-    print('updateBoxSize $point $boxSize');
+    //print('updateBoxSize $point $boxSize');
     if (point.dx > boxSize.width - padding ) {
       newWidth = point.dx + 20; // Add padding
       needsResize = true;
