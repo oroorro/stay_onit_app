@@ -81,7 +81,7 @@ class _MyHomePageState extends State<MyHomePage> {
         viewId: viewId,
         boxSize: boxSize,
         paths: pathsForViews[viewId]!,
-        onPathsChanged: (newPaths) { //currently widget.paths is empty in _MiddleViewState 
+        onPathsChanged: (newPaths) { 
           // Update the paths for this viewId whenever they change
           pathsForViews[viewId] = newPaths;
           print("funcion onPathsChanged: ${pathsForViews[viewId]}");
@@ -109,14 +109,40 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void selectDrawingView(int index) {
     setState(() {
-      if (selectedDrawingViewIndex != index) {
-        // Dispose of the currently selected view's state
-        //final currentViewState = drawingViewStates[selectedDrawingViewIndex];
-        //currentViewState?.dispose();
+      final viewId = drawingViews[index].viewId;
 
-        // Update the selected index
+      // Update selected index
+      if (selectedDrawingViewIndex != index) {
         selectedDrawingViewIndex = index;
-        print("Selected _MiddleView with viewId: ${drawingViews[index].viewId} $drawingViews");
+        print("Selected _MiddleView with viewId: ${drawingViews[index].viewId}");
+
+        // Create a new instance with the stored paths from pathsForViews
+        final updatedView = _MiddleView(
+          key: UniqueKey(),
+          viewId: viewId,
+          boxSize: boxSize,
+          paths: pathsForViews[viewId]!,  // Reuse the paths from pathsForViews
+          onPathsChanged: (newPaths) {
+            // Update the paths for this viewId whenever they change
+            pathsForViews[viewId] = newPaths;
+            print("Function onPathsChanged: ${pathsForViews[viewId]}");
+          },
+          onResize: (newSize) {
+            setState(() {
+              boxSize = newSize;
+            });
+          },
+          onStateReady: (state) {
+            // Update the state reference in drawingViewStates
+            drawingViewStates[selectedDrawingViewIndex] = state;
+          },
+          getPathsForViews: () {
+            print("viewId: $viewId getPathsForViews: ${pathsForViews[viewId]}");
+          },
+        );
+
+        // Replace the old view instance with the updated one
+        drawingViews[selectedDrawingViewIndex] = updatedView;
       }
     });
   }
