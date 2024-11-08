@@ -64,6 +64,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
   //_MiddleView? currentView;  // Track the current view explicitly
   List<_MiddleViewState?> drawingViewStates = [];
+ 
+  //store the paths for each viewId
+  Map<int, List<List<Offset>>> pathsForViews = {};
 
   // Create a new drawing view and add it to the list
   void createNewDrawingView() {
@@ -71,11 +74,19 @@ class _MyHomePageState extends State<MyHomePage> {
       final viewId = nextViewId++;
       drawingViews = [...drawingViews];
       drawingViewStates = [...drawingViewStates];
+      pathsForViews[viewId] = []; //initalize empty path for new MiddleViewState 
     
        final newView = _MiddleView(
         key: UniqueKey(),
         viewId: viewId,
         boxSize: boxSize,
+        paths: pathsForViews[viewId]!,
+        onPathsChanged: (newPaths) { //currently widget.paths is empty in _MiddleViewState 
+          // Update the paths for this viewId whenever they change
+          pathsForViews[viewId] = newPaths;
+          print("funcion onPathsChanged: ${pathsForViews[viewId]}");
+         
+        },
         onResize: (newSize) {
           setState(() {
             boxSize = newSize;
@@ -83,6 +94,9 @@ class _MyHomePageState extends State<MyHomePage> {
         },
         onStateReady: (state) {
           drawingViewStates.add(state);
+        },
+        getPathsForViews:(){
+          print("viewId: $viewId getPathsForViews: ${pathsForViews[viewId]}");
         },
       );
       drawingViews.add(newView);
@@ -97,12 +111,12 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       if (selectedDrawingViewIndex != index) {
         // Dispose of the currently selected view's state
-        final currentViewState = drawingViewStates[selectedDrawingViewIndex];
-        currentViewState?.dispose();
+        //final currentViewState = drawingViewStates[selectedDrawingViewIndex];
+        //currentViewState?.dispose();
 
         // Update the selected index
         selectedDrawingViewIndex = index;
-        print("Selected _MiddleView with viewId: ${drawingViews[index].viewId}");
+        print("Selected _MiddleView with viewId: ${drawingViews[index].viewId} $drawingViews");
       }
     });
   }
@@ -157,6 +171,9 @@ class _MiddleView extends StatefulWidget {
   final ValueChanged<Size> onResize; // Callback to update size
   final int viewId;
   final Function(_MiddleViewState) onStateReady;
+  final Function() getPathsForViews;
+  final List<List<Offset>> paths;
+  final ValueChanged<List<List<Offset>>> onPathsChanged;
   
   
   const _MiddleView({
@@ -164,7 +181,11 @@ class _MiddleView extends StatefulWidget {
     required this.viewId, 
     required this.boxSize, 
     required this.onResize, 
-    required this.onStateReady}) : super(key: key);
+    required this.paths,
+    required this.onPathsChanged,
+    required this.onStateReady,
+    required this.getPathsForViews,
+    }) : super(key: key);
 
 
   
@@ -211,12 +232,15 @@ class _MiddleViewState extends State<_MiddleView> {
   void initState() {
     super.initState();
     widget.onStateReady(this);
-    print("Initializing _MiddleViewState for viewId: ${widget.viewId} with empty paths");
+    paths = List.from(widget.paths); 
+    print("Initializing _MiddleViewState for viewId: ${widget.viewId} with paths ${widget.paths}");
   }
 
   @override
   void dispose() {
-    print("Disposing _MiddleViewState for viewId: ${widget.viewId}");
+    widget.onPathsChanged(paths); 
+    print("Disposing _MiddleViewState for viewId: ${widget.viewId} onPathsChanged: ${widget.onPathsChanged}");
+    widget.getPathsForViews();
     super.dispose();
   }
 
@@ -419,6 +443,7 @@ void _onCropCompleted(Uint8List croppedData) {
             paths.add(currentPath); // uc-7
             currentPath = []; // Clear current path for new drawing uc-7
           });
+          widget.onPathsChanged(paths); // Notify parent of updated paths
         }
       },
       child: ColoredBox(
