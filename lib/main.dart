@@ -277,9 +277,9 @@ class _MiddleViewState extends State<_MiddleView> {
     paths = List.from(widget.paths); 
     totalPanOffset = widget.panOffset;
     _imagePosition = widget.panOffset;
-   _transformationController.value = Matrix4.identity()
-    ..translate(widget.panOffset.dx, widget.panOffset.dy)
-    ..scale(widget.zoomScale);
+    _transformationController.value = Matrix4.identity()
+      ..translate(widget.panOffset.dx, widget.panOffset.dy)
+      ..scale(widget.zoomScale);
     print("Initializing  _MiddleViewState for viewId: ${widget.viewId} with ${widget.panOffset}");
     //print("Initializing _MiddleViewState for viewId: ${widget.viewId} with paths ${widget.paths}");
   }
@@ -347,6 +347,10 @@ void _onCropCompleted(Uint8List croppedData) {
           // Use focalPointDelta to track panning or zoom changes
           setState(() {
             totalPanOffset += details.focalPointDelta;
+
+            _transformationController.value = Matrix4.identity()
+            ..translate(totalPanOffset.dx, totalPanOffset.dy)
+            ..scale(_transformationController.value.getMaxScaleOnAxis());
           });
         }
       },
