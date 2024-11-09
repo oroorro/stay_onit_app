@@ -276,8 +276,12 @@ class _MiddleViewState extends State<_MiddleView> {
     widget.onStateReady(this);
     paths = List.from(widget.paths); 
     totalPanOffset = widget.panOffset;
-    _transformationController.value = Matrix4.identity()..scale(widget.zoomScale);
-    print("Initializing _MiddleViewState for viewId: ${widget.viewId} with paths ${widget.paths}");
+    _imagePosition = widget.panOffset;
+   _transformationController.value = Matrix4.identity()
+    ..translate(widget.panOffset.dx, widget.panOffset.dy)
+    ..scale(widget.zoomScale);
+    print("Initializing  _MiddleViewState for viewId: ${widget.viewId} with ${widget.panOffset}");
+    //print("Initializing _MiddleViewState for viewId: ${widget.viewId} with paths ${widget.paths}");
   }
 
   @override
@@ -285,7 +289,7 @@ class _MiddleViewState extends State<_MiddleView> {
     //widget.onPathsChanged(paths); 
     final currentScale = _transformationController.value.getMaxScaleOnAxis();
     widget.onStateChanged(paths, totalPanOffset, currentScale);
-    print("Disposing _MiddleViewState for viewId: ${widget.viewId} ");
+    print("Disposing _MiddleViewState for viewId: ${widget.viewId} totalPanOffset: $totalPanOffset");
     widget.getPathsForViews();
     super.dispose();
   }
@@ -330,7 +334,7 @@ void _onCropCompleted(Uint8List croppedData) {
 
   @override
   Widget build(BuildContext context) {
-    print("Rendering _MiddleView with viewId: ${widget.viewId} path: ${paths.length}");
+    //print("Rendering _MiddleView with viewId: ${widget.viewId} path: ${paths.length}");
     final AppState currentState = context.watch<StateManagerModel>().currentState; 
 
      return InteractiveViewer(
@@ -339,12 +343,12 @@ void _onCropCompleted(Uint8List croppedData) {
       minScale: 0.2,  // Minimum zoom scale
       maxScale: 4.0,  // Maximum zoom scale
       onInteractionUpdate: (details) {
-      if (currentState == AppState.zooming) {
-        // Use focalPointDelta to track panning or zoom changes
-        setState(() {
-          totalPanOffset += details.focalPointDelta;
-        });
-      }
+        if (currentState == AppState.zooming) {
+          // Use focalPointDelta to track panning or zoom changes
+          setState(() {
+            totalPanOffset += details.focalPointDelta;
+          });
+        }
       },
       onInteractionEnd: (details) {
       },
@@ -415,8 +419,8 @@ void _onCropCompleted(Uint8List croppedData) {
     final AppState currentState = context.watch<StateManagerModel>().currentState;
     return GestureDetector( // Drawing mode is enabled 
       onTapUp: (details) {
-                  handleTap(details.localPosition); // Check if tap clears selection
-              },
+        handleTap(details.localPosition); // Check if tap clears selection
+      },
       onPanStart: (details) {
         setState(() {
           if(currentState == AppState.drawing){
