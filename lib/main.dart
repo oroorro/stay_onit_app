@@ -18,6 +18,8 @@ import 'dart:io';
 import 'package:crop_your_image/crop_your_image.dart';
 import 'dart:typed_data';
 
+typedef ViewStateChangedCallback = void Function(List<List<Offset>>, Offset, double);
+
 void main() {
   //debugPrintRebuildDirtyWidgets = true;
   runApp(
@@ -66,7 +68,9 @@ class _MyHomePageState extends State<MyHomePage> {
   List<_MiddleViewState?> drawingViewStates = [];
  
   //store the paths for each viewId
-  Map<int, List<List<Offset>>> pathsForViews = {};
+  // Map<int, List<List<Offset>>> pathsForViews = {};
+  //store the paths, panOffset, zoomscale  for each viewId
+  Map<int, Map<String, dynamic>> viewData = {};
 
   // Create a new drawing view and add it to the list
   void createNewDrawingView() {
@@ -74,18 +78,26 @@ class _MyHomePageState extends State<MyHomePage> {
       final viewId = nextViewId++;
       drawingViews = [...drawingViews];
       drawingViewStates = [...drawingViewStates];
-      pathsForViews[viewId] = []; //initalize empty path for new MiddleViewState 
+      //pathsForViews[viewId] = []; //initalize empty path for new MiddleViewState 
     
-       final newView = _MiddleView(
+      viewData[viewId] = {
+        "paths": [],
+        "panOffset": Offset.zero,
+        "zoomScale": 1.0,
+      };
+
+      final newView = _MiddleView(
         key: UniqueKey(),
         viewId: viewId,
         boxSize: boxSize,
-        paths: pathsForViews[viewId]!,
-        onPathsChanged: (newPaths) { 
-          // Update the paths for this viewId whenever they change
-          pathsForViews[viewId] = newPaths;
-          print("funcion onPathsChanged: ${pathsForViews[viewId]}");
-         
+        paths: viewData[viewId]!["paths"],
+        panOffset: viewData[viewId]!["panOffset"],
+        zoomScale: viewData[viewId]!["zoomScale"],
+        onStateChanged: (newPaths, newPanOffset, newZoomScale) {
+          // Update stored data for the view
+          viewData[viewId]!["paths"] = newPaths;
+          viewData[viewId]!["panOffset"] = newPanOffset;
+          viewData[viewId]!["zoomScale"] = newZoomScale;
         },
         onResize: (newSize) {
           setState(() {
@@ -96,7 +108,7 @@ class _MyHomePageState extends State<MyHomePage> {
           drawingViewStates.add(state);
         },
         getPathsForViews:(){
-          print("viewId: $viewId getPathsForViews: ${pathsForViews[viewId]}");
+          //print("viewId: $viewId getPathsForViews: ${pathsForViews[viewId]}");
         },
       );
       drawingViews.add(newView);
@@ -110,7 +122,6 @@ class _MyHomePageState extends State<MyHomePage> {
   void selectDrawingView(int index) {
     setState(() {
       final viewId = drawingViews[index].viewId;
-
       // Update selected index
       if (selectedDrawingViewIndex != index) {
         selectedDrawingViewIndex = index;
@@ -121,11 +132,14 @@ class _MyHomePageState extends State<MyHomePage> {
           key: UniqueKey(),
           viewId: viewId,
           boxSize: boxSize,
-          paths: pathsForViews[viewId]!,  // Reuse the paths from pathsForViews
-          onPathsChanged: (newPaths) {
-            // Update the paths for this viewId whenever they change
-            pathsForViews[viewId] = newPaths;
-            print("Function onPathsChanged: ${pathsForViews[viewId]}");
+          paths: viewData[viewId]!["paths"],
+          panOffset: viewData[viewId]!["panOffset"],
+          zoomScale: viewData[viewId]!["zoomScale"],
+          onStateChanged: (newPaths, newPanOffset, newZoomScale) {
+            print('saving changes onStateChanged in selectDrawingView: ${newPaths.length} $newPanOffset $newZoomScale ');
+            viewData[viewId]!["paths"] = newPaths;
+            viewData[viewId]!["panOffset"] = newPanOffset;
+            viewData[viewId]!["zoomScale"] = newZoomScale;
           },
           onResize: (newSize) {
             setState(() {
@@ -137,7 +151,7 @@ class _MyHomePageState extends State<MyHomePage> {
             drawingViewStates[selectedDrawingViewIndex] = state;
           },
           getPathsForViews: () {
-            print("viewId: $viewId getPathsForViews: ${pathsForViews[viewId]}");
+            //print("viewId: $viewId getPathsForViews: ${pathsForViews[viewId]}");
           },
         );
 
@@ -199,7 +213,9 @@ class _MiddleView extends StatefulWidget {
   final Function(_MiddleViewState) onStateReady;
   final Function() getPathsForViews;
   final List<List<Offset>> paths;
-  final ValueChanged<List<List<Offset>>> onPathsChanged;
+  final Offset panOffset;
+  final double zoomScale;
+  final ViewStateChangedCallback onStateChanged;
   
   
   const _MiddleView({
@@ -208,13 +224,13 @@ class _MiddleView extends StatefulWidget {
     required this.boxSize, 
     required this.onResize, 
     required this.paths,
-    required this.onPathsChanged,
+    required this.panOffset,
+    required this.zoomScale,
+    required this.onStateChanged,
     required this.onStateReady,
     required this.getPathsForViews,
     }) : super(key: key);
 
-
-  
   @override
   State<_MiddleView> createState() => _MiddleViewState();
 }
@@ -259,13 +275,17 @@ class _MiddleViewState extends State<_MiddleView> {
     super.initState();
     widget.onStateReady(this);
     paths = List.from(widget.paths); 
+    totalPanOffset = widget.panOffset;
+    _transformationController.value = Matrix4.identity()..scale(widget.zoomScale);
     print("Initializing _MiddleViewState for viewId: ${widget.viewId} with paths ${widget.paths}");
   }
 
   @override
   void dispose() {
-    widget.onPathsChanged(paths); 
-    print("Disposing _MiddleViewState for viewId: ${widget.viewId} onPathsChanged: ${widget.onPathsChanged}");
+    //widget.onPathsChanged(paths); 
+    final currentScale = _transformationController.value.getMaxScaleOnAxis();
+    widget.onStateChanged(paths, totalPanOffset, currentScale);
+    print("Disposing _MiddleViewState for viewId: ${widget.viewId} ");
     widget.getPathsForViews();
     super.dispose();
   }
@@ -469,7 +489,7 @@ void _onCropCompleted(Uint8List croppedData) {
             paths.add(currentPath); // uc-7
             currentPath = []; // Clear current path for new drawing uc-7
           });
-          widget.onPathsChanged(paths); // Notify parent of updated paths
+          //widget.onPathsChanged(paths); // Notify parent of updated paths
         }
       },
       child: ColoredBox(
