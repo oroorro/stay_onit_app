@@ -81,7 +81,7 @@ class _MyHomePageState extends State<MyHomePage> {
       //pathsForViews[viewId] = []; //initalize empty path for new MiddleViewState 
     
       viewData[viewId] = {
-        "paths": [],
+        "paths": <List<Offset>>[],  // Explicitly give type as List<List<Offset>>
         "panOffset": Offset.zero,
         "zoomScale": 1.0,
       };
@@ -90,12 +90,12 @@ class _MyHomePageState extends State<MyHomePage> {
         key: UniqueKey(),
         viewId: viewId,
         boxSize: boxSize,
-        paths: viewData[viewId]!["paths"],
-        panOffset: viewData[viewId]!["panOffset"],
-        zoomScale: viewData[viewId]!["zoomScale"],
+        paths: viewData[viewId]!["paths"] as List<List<Offset>>,
+        panOffset: viewData[viewId]!["panOffset"] as Offset,
+        zoomScale: viewData[viewId]!["zoomScale"] as double,
         onStateChanged: (newPaths, newPanOffset, newZoomScale) {
           // Update stored data for the view
-          viewData[viewId]!["paths"] = newPaths;
+          viewData[viewId]!["paths"] = List<List<Offset>>.from(newPaths);
           viewData[viewId]!["panOffset"] = newPanOffset;
           viewData[viewId]!["zoomScale"] = newZoomScale;
         },
@@ -132,12 +132,12 @@ class _MyHomePageState extends State<MyHomePage> {
           key: UniqueKey(),
           viewId: viewId,
           boxSize: boxSize,
-          paths: viewData[viewId]!["paths"],
-          panOffset: viewData[viewId]!["panOffset"],
-          zoomScale: viewData[viewId]!["zoomScale"],
+          paths: viewData[viewId]!["paths"] as List<List<Offset>>,
+          panOffset: viewData[viewId]!["panOffset"] as Offset,
+          zoomScale: viewData[viewId]!["zoomScale"] as double,
           onStateChanged: (newPaths, newPanOffset, newZoomScale) {
             print('saving changes onStateChanged in selectDrawingView: ${newPaths.length} $newPanOffset $newZoomScale ');
-            viewData[viewId]!["paths"] = newPaths;
+            viewData[viewId]!["paths"] = List<List<Offset>>.from(newPaths);
             viewData[viewId]!["panOffset"] = newPanOffset;
             viewData[viewId]!["zoomScale"] = newZoomScale;
           },
