@@ -15,7 +15,13 @@ import 'bottom_nav.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
+import 'package:crop_your_image/crop_your_image.dart';
+import 'dart:typed_data';
+
+typedef ViewStateChangedCallback = void Function(List<List<Offset>>, Offset, double);
+
 void main() {
+  //debugPrintRebuildDirtyWidgets = true;
   runApp(
     ChangeNotifierProvider(
       create: (context) => StateManagerModel(),
@@ -54,6 +60,107 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Size boxSize = const Size(800, 750); // Initial size
 
+  List<_MiddleView> drawingViews = []; // Store instances of _buildDrawingView
+  int selectedDrawingViewIndex = 0; // Track selected index
+  int nextViewId = 1; // Track next ID for new instances
+
+  //_MiddleView? currentView;  // Track the current view explicitly
+  List<_MiddleViewState?> drawingViewStates = [];
+ 
+  //store the paths for each viewId
+  // Map<int, List<List<Offset>>> pathsForViews = {};
+  //store the paths, panOffset, zoomscale  for each viewId
+  Map<int, Map<String, dynamic>> viewData = {};
+
+  // Create a new drawing view and add it to the list
+  void createNewDrawingView() {
+    setState(() {
+      final viewId = nextViewId++;
+      drawingViews = [...drawingViews];
+      drawingViewStates = [...drawingViewStates];
+      //pathsForViews[viewId] = []; //initalize empty path for new MiddleViewState 
+    
+      viewData[viewId] = {
+        "paths": <List<Offset>>[],  // Explicitly give type as List<List<Offset>>
+        "panOffset": Offset.zero,
+        "zoomScale": 1.0,
+      };
+
+      final newView = _MiddleView(
+        key: UniqueKey(),
+        viewId: viewId,
+        boxSize: boxSize,
+        paths: viewData[viewId]!["paths"] as List<List<Offset>>,
+        panOffset: viewData[viewId]!["panOffset"] as Offset,
+        zoomScale: viewData[viewId]!["zoomScale"] as double,
+        onStateChanged: (newPaths, newPanOffset, newZoomScale) {
+          // Update stored data for the view
+          viewData[viewId]!["paths"] = List<List<Offset>>.from(newPaths);
+          viewData[viewId]!["panOffset"] = newPanOffset;
+          viewData[viewId]!["zoomScale"] = newZoomScale;
+        },
+        onResize: (newSize) {
+          setState(() {
+            boxSize = newSize;
+          });
+        },
+        onStateReady: (state) {
+          drawingViewStates.add(state);
+        },
+        getPathsForViews:(){
+          //print("viewId: $viewId getPathsForViews: ${pathsForViews[viewId]}");
+        },
+      );
+      drawingViews.add(newView);
+      print("Created _MiddleView with viewId: $viewId");
+      selectedDrawingViewIndex = drawingViews.length - 1; // Select the new drawing view
+    });
+  }
+
+
+
+  void selectDrawingView(int index) {
+    setState(() {
+      final viewId = drawingViews[index].viewId;
+      // Update selected index
+      if (selectedDrawingViewIndex != index) {
+        selectedDrawingViewIndex = index;
+        print("Selected _MiddleView with viewId: ${drawingViews[index].viewId}");
+
+        // Create a new instance with the stored paths from pathsForViews
+        final updatedView = _MiddleView(
+          key: UniqueKey(),
+          viewId: viewId,
+          boxSize: boxSize,
+          paths: viewData[viewId]!["paths"] as List<List<Offset>>,
+          panOffset: viewData[viewId]!["panOffset"] as Offset,
+          zoomScale: viewData[viewId]!["zoomScale"] as double,
+          onStateChanged: (newPaths, newPanOffset, newZoomScale) {
+            print('saving changes onStateChanged in selectDrawingView: ${newPaths.length} $newPanOffset $newZoomScale ');
+            viewData[viewId]!["paths"] = List<List<Offset>>.from(newPaths);
+            viewData[viewId]!["panOffset"] = newPanOffset;
+            viewData[viewId]!["zoomScale"] = newZoomScale;
+          },
+          onResize: (newSize) {
+            setState(() {
+              boxSize = newSize;
+            });
+          },
+          onStateReady: (state) {
+            // Update the state reference in drawingViewStates
+            drawingViewStates[selectedDrawingViewIndex] = state;
+          },
+          getPathsForViews: () {
+            //print("viewId: $viewId getPathsForViews: ${pathsForViews[viewId]}");
+          },
+        );
+
+        // Replace the old view instance with the updated one
+        drawingViews[selectedDrawingViewIndex] = updatedView;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -62,28 +169,35 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Column(
         children: [
-          TopNav(),  // Pass callback to _TopNav
+          const TopNav(),  // Pass callback to _TopNav
           Expanded(
-             child: SingleChildScrollView(
-              scrollDirection: Axis.vertical,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
+            //  child: SingleChildScrollView(
+            //   scrollDirection: Axis.vertical,
+            //   child: SingleChildScrollView(
+            //     scrollDirection: Axis.horizontal,
                 child: SizedBox(
                   width: boxSize.width,
                   height: boxSize.height,
-                  child: _MiddleView(
-                    boxSize: boxSize,
-                    onResize: (newSize) {
-                      setState(() {
-                        boxSize = newSize; // Update box size dynamically
-                      });
-                    },
-                  ),
+                   child: drawingViews.isNotEmpty
+                      ? drawingViews[selectedDrawingViewIndex] // Show selected view
+                      : const Center(child: Text("No Drawing View")),
+                  // child: _MiddleView(
+                  //   boxSize: boxSize,
+                  //   onResize: (newSize) {
+                  //     setState(() {
+                  //       boxSize = newSize; // Update box size dynamically
+                  //     });
+                  //   },
+                  // ),
                 ),
-              ),
-            ),
+              // ),
+            // ),
           ),
-          BottomNav(),
+          BottomNav(
+            onNewDrawingView: createNewDrawingView,
+            onSelectDrawingView: selectDrawingView,
+            drawingViewCount: drawingViews.length,
+          ),
         ],
       ),
     );
@@ -95,18 +209,36 @@ class _MiddleView extends StatefulWidget {
 
   final Size boxSize;
   final ValueChanged<Size> onResize; // Callback to update size
+  final int viewId;
+  final Function(_MiddleViewState) onStateReady;
+  final Function() getPathsForViews;
+  final List<List<Offset>> paths;
+  final Offset panOffset;
+  final double zoomScale;
+  final ViewStateChangedCallback onStateChanged;
   
   
-  const _MiddleView({required this.boxSize, required this.onResize});
+  const _MiddleView({
+    Key? key, 
+    required this.viewId, 
+    required this.boxSize, 
+    required this.onResize, 
+    required this.paths,
+    required this.panOffset,
+    required this.zoomScale,
+    required this.onStateChanged,
+    required this.onStateReady,
+    required this.getPathsForViews,
+    }) : super(key: key);
 
-  
-  
   @override
   State<_MiddleView> createState() => _MiddleViewState();
 }
 
 class _MiddleViewState extends State<_MiddleView> {
   Key _interactiveViewerKey = UniqueKey();
+  final CropController _cropController = CropController(); 
+
   //List<Offset> points = [];  // Store the points where the user drags
   Offset totalPanOffset = Offset.zero;
   final TransformationController  _transformationController = TransformationController();
@@ -134,6 +266,33 @@ class _MiddleViewState extends State<_MiddleView> {
   Offset _imagePosition = Offset.zero;
   double _imageScale = 1.0;
 
+  //image cropping 
+  Uint8List? _croppedImageData;
+  bool isCropping = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.onStateReady(this);
+    paths = List.from(widget.paths); 
+    totalPanOffset = widget.panOffset;
+    _imagePosition = widget.panOffset;
+    _transformationController.value = Matrix4.identity()
+      ..translate(widget.panOffset.dx, widget.panOffset.dy)
+      ..scale(widget.zoomScale);
+    print("Initializing  _MiddleViewState for viewId: ${widget.viewId} with ${widget.panOffset}");
+    //print("Initializing _MiddleViewState for viewId: ${widget.viewId} with paths ${widget.paths}");
+  }
+
+  @override
+  void dispose() {
+    //widget.onPathsChanged(paths); 
+    final currentScale = _transformationController.value.getMaxScaleOnAxis();
+    widget.onStateChanged(paths, totalPanOffset, currentScale);
+    print("Disposing _MiddleViewState for viewId: ${widget.viewId} totalPanOffset: $totalPanOffset");
+    widget.getPathsForViews();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -154,6 +313,7 @@ class _MiddleViewState extends State<_MiddleView> {
         _importedImage = File(pickedFile.path);
         _imagePosition = Offset.zero;
         _imageScale = 1.0;
+        isCropping = true; 
       });
       context.read<StateManagerModel>().updateCurrentState(AppState.viewImage); 
     } else {
@@ -164,10 +324,17 @@ class _MiddleViewState extends State<_MiddleView> {
   }
 }
 
+void _onCropCompleted(Uint8List croppedData) {
+    setState(() {
+      _croppedImageData = croppedData;
+      isCropping = false;  // Disable cropping view after crop is complete
+    });
+  }
+
 
   @override
   Widget build(BuildContext context) {
-
+    //print("Rendering _MiddleView with viewId: ${widget.viewId} path: ${paths.length}");
     final AppState currentState = context.watch<StateManagerModel>().currentState; 
 
      return InteractiveViewer(
@@ -176,17 +343,24 @@ class _MiddleViewState extends State<_MiddleView> {
       minScale: 0.2,  // Minimum zoom scale
       maxScale: 4.0,  // Maximum zoom scale
       onInteractionUpdate: (details) {
-      if (currentState == AppState.zooming) {
-        // Use focalPointDelta to track panning or zoom changes
-        setState(() {
-          totalPanOffset += details.focalPointDelta;
-        });
-      }
+        if (currentState == AppState.zooming) {
+          // Use focalPointDelta to track panning or zoom changes
+          setState(() {
+            totalPanOffset += details.focalPointDelta;
+
+            _transformationController.value = Matrix4.identity()
+            ..translate(totalPanOffset.dx, totalPanOffset.dy)
+            ..scale(_transformationController.value.getMaxScaleOnAxis());
+          });
+        }
       },
       onInteractionEnd: (details) {
       },
       child: Stack(
         children: [
+           if (currentState == AppState.cropImage)
+            _buildImageCropView()  // Show cropping view
+          else
           //display views based on the current app state
           _buildViewBasedOnState(currentState),
         ],
@@ -209,6 +383,18 @@ class _MiddleViewState extends State<_MiddleView> {
       default:
         return _buildDrawingView();
     }
+  }
+
+ Widget _buildImageCropView() {
+    return Center(
+      child: _importedImage != null
+          ? Crop(
+              controller: _cropController,
+              image: _importedImage!.readAsBytesSync(),
+              onCropped: _onCropCompleted,
+            )
+          : const Text("No image available"),
+    );
   }
 
   Widget _buildImageView() {
@@ -237,8 +423,8 @@ class _MiddleViewState extends State<_MiddleView> {
     final AppState currentState = context.watch<StateManagerModel>().currentState;
     return GestureDetector( // Drawing mode is enabled 
       onTapUp: (details) {
-                  handleTap(details.localPosition); // Check if tap clears selection
-              },
+        handleTap(details.localPosition); // Check if tap clears selection
+      },
       onPanStart: (details) {
         setState(() {
           if(currentState == AppState.drawing){
@@ -311,6 +497,7 @@ class _MiddleViewState extends State<_MiddleView> {
             paths.add(currentPath); // uc-7
             currentPath = []; // Clear current path for new drawing uc-7
           });
+          //widget.onPathsChanged(paths); // Notify parent of updated paths
         }
       },
       child: ColoredBox(
@@ -333,7 +520,7 @@ class _MiddleViewState extends State<_MiddleView> {
 
     const padding = 10.0;
 
-    print('updateBoxSize $point $boxSize');
+    //print('updateBoxSize $point $boxSize');
     if (point.dx > boxSize.width - padding ) {
       newWidth = point.dx + 20; // Add padding
       needsResize = true;

@@ -7,6 +7,7 @@ enum AppState {
   resizingBlock,
   none,
   importImage,
+  cropImage,
   viewImage,
   zooming,
 }
